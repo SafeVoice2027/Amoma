@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+:root {
+  /* ---- Primary: Purple/Indigo (trust, dominant color) ---- */
+  --color-primary-50: #f5f3ff;
+  --color-primary-100: #ede9ff;
+  --color-primary-200: #dad2ff;
+  --color-primary-300: #b9a9ff;
+  --color-primary-400: #9c85fa;
+  --color-primary-500: #8465f0;
+  --color-primary-600: #6c4fe0;
+  --color-primary-700: #5b3fc9;
+  --color-primary-800: #4a34a3;
+  --color-primary-900: #3d2c82;
+  --color-primary-950: #251a52;
+
+  /* ---- Accent: Soft Orange (warm, encouraging moments only) ---- */
+  --color-accent-50: #fff6ed;
+  --color-accent-100: #ffead2;
+  --color-accent-200: #ffd2a3;
+  --color-accent-300: #ffb46b;
+  --color-accent-400: #fd9640;
+  --color-accent-500: #f57a20;
+  --color-accent-600: #e05f14;
+  --color-accent-700: #b94812;
+  --color-accent-800: #933a16;
+  --color-accent-900: #773115;
+
+  /* ---- Authority: Dark Plum (staff/admin surfaces) ---- */
+  --color-authority-50: #f6effa;
+  --color-authority-100: #e9d8f2;
+  --color-authority-200: #d3b3e5;
+  --color-authority-300: #b686d1;
+  --color-authority-400: #965fb5;
+  --color-authority-500: #7a4696;
+  --color-authority-600: #5f347a;
+  --color-authority-700: #4a2a60;
+  --color-authority-800: #3a2149;
+  --color-authority-900: #2b1836;
+  --color-authority-950: #190e20;
+
+  /* ---- Danger: reserved for the immediate-danger / emergency screen ---- */
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-300: #fca5a5;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  /* ---- Neutrals ---- */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8f9fb;
+  --color-neutral-100: #f0f2f6;
+  --color-neutral-200: #e2e5ec;
+  --color-neutral-300: #cbd0db;
+  --color-neutral-400: #9aa1b2;
+  --color-neutral-500: #6b7284;
+  --color-neutral-600: #4c5266;
+  --color-neutral-700: #363b4c;
+  --color-neutral-800: #232636;
+  --color-neutral-900: #14151f;
+
+  /* ---- Semantic tokens: student experience (default) ---- */
+  --color-background: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-0);
+  --color-surface-raised: var(--color-neutral-0);
+  --color-border: var(--color-neutral-200);
+  --color-text: var(--color-neutral-900);
+  --color-text-muted: var(--color-neutral-600);
+  --color-brand: var(--color-primary-600);
+  --color-brand-strong: var(--color-primary-700);
+  --color-on-brand: var(--color-neutral-0);
+  --color-warm: var(--color-accent-500);
+  --color-on-warm: var(--color-neutral-900);
+}
+
+@theme inline {
+  --color-primary-50: var(--color-primary-50);
+  --color-primary-100: var(--color-primary-100);
+  --color-primary-200: var(--color-primary-200);
+  --color-primary-300: var(--color-primary-300);
+  --color-primary-400: var(--color-primary-400);
+  --color-primary-500: var(--color-primary-500);
+  --color-primary-600: var(--color-primary-600);
+  --color-primary-700: var(--color-primary-700);
+  --color-primary-800: var(--color-primary-800);
+  --color-primary-900: var(--color-primary-900);
+  --color-primary-950: var(--color-primary-950);
+
+  --color-accent-50: var(--color-accent-50);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
+
+  --color-authority-50: var(--color-authority-50);
+  --color-authority-100: var(--color-authority-100);
+  --color-authority-200: var(--color-authority-200);
+  --color-authority-300: var(--color-authority-300);
+  --color-authority-400: var(--color-authority-400);
+  --color-authority-500: var(--color-authority-500);
+  --color-authority-600: var(--color-authority-600);
+  --color-authority-700: var(--color-authority-700);
+  --color-authority-800: var(--color-authority-800);
+  --color-authority-900: var(--color-authority-900);
+  --color-authority-950: var(--color-authority-950);
+
+  --color-danger-50: var(--color-danger-50);
+  --color-danger-100: var(--color-danger-100);
+  --color-danger-300: var(--color-danger-300);
+  --color-danger-500: var(--color-danger-500);
+  --color-danger-600: var(--color-danger-600);
+  --color-danger-700: var(--color-danger-700);
+
+  --color-neutral-0: var(--color-neutral-0);
+  --color-neutral-50: var(--color-neutral-50);
+  --color-neutral-100: var(--color-neutral-100);
+  --color-neutral-200: var(--color-neutral-200);
+  --color-neutral-300: var(--color-neutral-300);
+  --color-neutral-400: var(--color-neutral-400);
+  --color-neutral-500: var(--color-neutral-500);
+  --color-neutral-600: var(--color-neutral-600);
+  --color-neutral-700: var(--color-neutral-700);
+  --color-neutral-800: var(--color-neutral-800);
+  --color-neutral-900: var(--color-neutral-900);
+
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-border: var(--color-border);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-brand: var(--color-brand);
+  --color-brand-strong: var(--color-brand-strong);
+  --color-on-brand: var(--color-on-brand);
+  --color-warm: var(--color-warm);
+  --color-on-warm: var(--color-on-warm);
+
+  --font-sans: var(--font-inter);
+}
+
+/* Dark mode: follows the OS by default, but a user choice made via the
+   Settings toggle (components/theme-toggle.tsx) — stored as `data-theme` on
+   <html> and mirrored to localStorage — always wins over the OS setting. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --color-background: var(--color-neutral-900);
+    --color-surface: var(--color-neutral-800);
+    --color-surface-raised: var(--color-neutral-800);
+    --color-border: var(--color-neutral-700);
+    --color-text: var(--color-neutral-50);
+    --color-text-muted: var(--color-neutral-400);
+    --color-brand: var(--color-primary-400);
+    --color-brand-strong: var(--color-primary-300);
+    --color-on-brand: var(--color-neutral-950, #0a0a0f);
+  }
+
+  html:not([data-theme="light"]) .control-shell {
+    --color-background: #0a0a0d;
+    --color-surface: #17171b;
+    --color-surface-raised: #1f1f24;
+    --color-border: #232328;
+    --color-text: #f5f5f7;
+    --color-text-muted: #9a9aa5;
+    --color-brand: #3b82f6;
+    --color-brand-strong: #2563eb;
+    --color-on-brand: #ffffff;
+  }
+}
+
+html[data-theme="dark"] {
+  --color-background: var(--color-neutral-900);
+  --color-surface: var(--color-neutral-800);
+  --color-surface-raised: var(--color-neutral-800);
+  --color-border: var(--color-neutral-700);
+  --color-text: var(--color-neutral-50);
+  --color-text-muted: var(--color-neutral-400);
+  --color-brand: var(--color-primary-400);
+  --color-brand-strong: var(--color-primary-300);
+  --color-on-brand: var(--color-neutral-950, #0a0a0f);
+}
+
+/* Shared by Admin and Staff surfaces (see their layout.tsx files). Reacts to
+   the site's light/dark toggle, same as the rest of the app: this block is
+   the light default; the dark variant lives in the prefers-color-scheme
+   block above (System) and the data-theme="dark" block below (explicit).
+   Light reuses the original "Authority" plum palette so Staff/Admin still
+   read as a distinct realm from the Student experience even in light mode.
+   Dark uses one-off literals (not the site's purple-tinted
+   --color-primary-* / --color-neutral-* scale) chosen to match a specific
+   reference mockup's true-neutral blacks and vivid blue accent, rather than
+   the app's existing indigo brand color. */
+.control-shell {
+  --color-background: var(--color-authority-50);
+  --color-surface: var(--color-neutral-0);
+  --color-border: var(--color-authority-100);
+  --color-text: var(--color-authority-950);
+  --color-text-muted: var(--color-authority-600);
+  --color-brand: var(--color-authority-700);
+  --color-brand-strong: var(--color-authority-800);
+  --color-on-brand: var(--color-neutral-0);
+}
+
+html[data-theme="dark"] .control-shell {
+  --color-background: #0a0a0d;
+  --color-surface: #17171b;
+  --color-surface-raised: #1f1f24;
+  --color-border: #232328;
+  --color-text: #f5f5f7;
+  --color-text-muted: #9a9aa5;
+  --color-brand: #3b82f6;
+  --color-brand-strong: #2563eb;
+  --color-on-brand: #ffffff;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Step-flow layouts (danger check, report wizards) get extra breathing room
+   and larger touch targets so nothing feels cramped or urgent-looking. */
+.step-flow {
+  --step-gap: 1.5rem;
+  --touch-target: 3rem;
+}
+
+/* Report Status Tracker (components/report-stage-tracker.tsx): a highlight
+   travels once across the segment leading into the currently-active stage,
+   then loops — one direction only (not back-and-forth), signaling ongoing
+   progress toward that stage without implying it's already done (that's
+   what the solid/completed state is for). Two staggered bars share this
+   keyframe (the second delayed by half a cycle) so a new highlight is
+   already entering as the first one exits — never a bare empty track. */
+@keyframes tracker-flow {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.tracker-sweep {
+  animation: tracker-flow 1.6s linear infinite;
+}
+.tracker-sweep-relay {
+  animation: tracker-flow 1.6s linear infinite;
+  animation-delay: -0.8s;
+}

@@ -1,0 +1,55 @@
+"use client";
+
+import { useTransition } from "react";
+import { Button, Card } from "@/components/ui";
+import type { UserRole } from "@/types/database";
+
+interface PendingProfile {
+  id: string;
+  full_name: string | null;
+  role: UserRole;
+  lrn: string | null;
+  deped_email: string | null;
+  created_at: string;
+}
+
+export function ApprovalRow({
+  profile,
+  onApprove,
+  onReject,
+}: {
+  profile: PendingProfile;
+  onApprove: (id: string) => Promise<void>;
+  onReject: (id: string) => Promise<void>;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Card className="flex items-center justify-between">
+      <div>
+        <p className="font-medium">{profile.full_name ?? "(no name on file)"}</p>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          {profile.role === "student" ? "Student" : "Staff"} · {profile.lrn ?? profile.deped_email} · requested{" "}
+          {new Date(profile.created_at).toLocaleDateString()}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          disabled={pending}
+          onClick={() => startTransition(() => onReject(profile.id))}
+          className="min-h-0 px-3 py-2 text-sm"
+        >
+          Reject
+        </Button>
+        <Button
+          disabled={pending}
+          onClick={() => startTransition(() => onApprove(profile.id))}
+          className="min-h-0 px-3 py-2 text-sm"
+        >
+          Approve
+        </Button>
+      </div>
+    </Card>
+  );
+}
