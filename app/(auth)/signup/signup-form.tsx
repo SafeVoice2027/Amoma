@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, KeyRound } from "lucide-react";
+import { User, Mail, Lock } from "lucide-react";
 import { Button, Card } from "@/components/ui";
 import { signup, type SignupState } from "./actions";
 import type { UserRole } from "@/types/database";
@@ -25,24 +25,9 @@ export function SignupForm() {
       <Card>
         <h2 className="text-xl font-semibold">Request submitted</h2>
         <p className="mt-2 text-[var(--color-text-muted)]">
-          A school admin needs to approve your account before you can log in. Check back soon.
+          A school admin needs to approve your account before you can log in. Once approved, log in
+          with {role === "student" ? "your LRN" : "your email"} and the password you just chose.
         </p>
-
-        {state.pin && (
-          <div className="mt-5 rounded-xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] p-4 text-center">
-            <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--color-primary-800)]">
-              <KeyRound size={16} />
-              Your PIN
-            </div>
-            <p className="mt-1 text-2xl font-bold tracking-wide text-[var(--color-primary-800)]">
-              {state.pin}
-            </p>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              Save this now — you&apos;ll need it with your LRN to log in once your account is
-              approved. It won&apos;t be shown again.
-            </p>
-          </div>
-        )}
 
         <Link href="/login">
           <Button variant="secondary" className="mt-6 w-full">
@@ -82,7 +67,7 @@ export function SignupForm() {
       <h1 className="text-lg font-semibold">Request Access</h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
         {role === "student"
-          ? "Tell us who you are. We'll generate your log-in PIN for you."
+          ? "Tell us who you are and choose a password to log in with your LRN."
           : "An admin will review and approve your account before you can log in."}
       </p>
 
@@ -128,57 +113,45 @@ export function SignupForm() {
           </div>
         </div>
 
-        {role === "student" ? (
-          <div className="flex items-start gap-2 rounded-xl bg-[var(--color-primary-50)] p-3 text-xs text-[var(--color-primary-800)]">
-            <KeyRound size={14} className="mt-0.5 flex-shrink-0" />
-            <span>
-              You&apos;ll log in with a PIN, not a password. We&apos;ll generate it from your name and
-              school and show it to you after you submit this form.
+        <div>
+          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            Password
+          </label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
+              <Lock size={18} />
             </span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+            />
           </div>
-        ) : (
-          <>
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium">
-                Password
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-                  <Lock size={18} />
-                </span>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
-                />
-              </div>
-            </div>
+        </div>
 
-            <div>
-              <label htmlFor="confirm_password" className="mb-1 block text-sm font-medium">
-                Confirm password
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-                  <Lock size={18} />
-                </span>
-                <input
-                  id="confirm_password"
-                  name="confirm_password"
-                  type="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
-                />
-              </div>
-            </div>
-          </>
-        )}
+        <div>
+          <label htmlFor="confirm_password" className="mb-1 block text-sm font-medium">
+            Confirm password
+          </label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
+              <Lock size={18} />
+            </span>
+            <input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+            />
+          </div>
+        </div>
 
         {state.error && (
           <p className="rounded-lg bg-[var(--color-danger-50)] px-3 py-2 text-sm text-[var(--color-danger-700)]">

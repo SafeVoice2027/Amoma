@@ -3,7 +3,7 @@
 import { Suspense, useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, User, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { Button, Card } from "@/components/ui";
 import { login, type LoginState } from "./actions";
 import type { UserRole } from "@/types/database";
@@ -27,7 +27,7 @@ const ROLE_TABS: {
     idLabel: "Learner Reference Number (LRN)",
     idType: "text",
     idPlaceholder: "123456789012",
-    passwordLabel: "PIN",
+    passwordLabel: "Password",
     submitLabel: "Log In Anonymously",
   },
   {
@@ -35,17 +35,6 @@ const ROLE_TABS: {
     label: "Staff",
     heading: "Teacher / Counselor Log In",
     subtitle: "Log in with your school staff email. Accounts require admin approval.",
-    idLabel: "Staff Email Address",
-    idType: "email",
-    idPlaceholder: "you@deped.gov.ph",
-    passwordLabel: "Password",
-    submitLabel: "Log in",
-  },
-  {
-    role: "admin",
-    label: "Admin",
-    heading: "School Administrator Log In",
-    subtitle: "Log in with your school administrator credentials.",
     idLabel: "Staff Email Address",
     idType: "email",
     idPlaceholder: "you@deped.gov.ph",
@@ -72,8 +61,8 @@ function LoginForm() {
   const tab = ROLE_TABS.find((t) => t.role === role)!;
 
   return (
-    <Card>
-      <div className="mb-6 grid grid-cols-3 gap-2 rounded-xl bg-[var(--color-background)] p-1">
+    <Card className="!p-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-background)] p-1">
         {ROLE_TABS.map((t) => (
           <button
             key={t.role}
@@ -90,7 +79,7 @@ function LoginForm() {
         ))}
       </div>
 
-      <p className="mb-5 text-center text-sm text-[var(--color-text-muted)]">
+      <p className="mb-3 text-center text-sm text-[var(--color-text-muted)]">
         Don&apos;t have an account?{" "}
         <Link href="/signup" className="font-medium text-[var(--color-brand)]">
           Request Access
@@ -100,7 +89,7 @@ function LoginForm() {
       <h1 className="text-lg font-semibold">{tab.heading}</h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">{tab.subtitle}</p>
 
-      <form action={formAction} className="mt-5 space-y-4">
+      <form action={formAction} className="mt-3 space-y-2">
         <input type="hidden" name="role" value={role} />
         <input type="hidden" name="next" value={next} />
 
@@ -119,7 +108,7 @@ function LoginForm() {
               placeholder={tab.idPlaceholder}
               required
               autoComplete="username"
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
             />
           </div>
         </div>
@@ -138,7 +127,7 @@ function LoginForm() {
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-10 text-base outline-none focus:border-[var(--color-brand)]"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-10 pr-10 text-base outline-none focus:border-[var(--color-brand)]"
             />
             <button
               type="button"
@@ -150,13 +139,6 @@ function LoginForm() {
             </button>
           </div>
         </div>
-
-        {tab.role === "student" && (
-          <div className="flex items-start gap-2 rounded-xl bg-[var(--color-primary-50)] p-3 text-xs text-[var(--color-primary-800)]">
-            <EyeOff size={14} className="mt-0.5 flex-shrink-0" />
-            <span>Your reports will be anonymous. Teachers cannot see who you are.</span>
-          </div>
-        )}
 
         <div className="text-right">
           <Link href="/forgot-password" className="text-sm font-medium text-[var(--color-brand)]">
@@ -176,15 +158,9 @@ function LoginForm() {
       </form>
 
       {tab.role === "student" && (
-        <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <KeyRound size={16} className="text-[var(--color-primary-700)]" />
-            How your PIN works
-          </div>
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            Your PIN was generated from your name and school ID when your account was requested. Don&apos;t
-            have one yet? Request access above.
-          </p>
+        <div className="mt-2 flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-2.5 text-xs text-[var(--color-text-muted)]">
+          <EyeOff size={14} className="mt-0.5 flex-shrink-0" />
+          <span>Your reports will be anonymous. Teachers cannot see who you are.</span>
         </div>
       )}
     </Card>

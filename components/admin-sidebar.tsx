@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, Settings } from "lucide-react";
+import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, Users, Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
 
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/admin/bug-reports", label: "Bug reports", icon: Bug },
   { href: "/admin/followups", label: "Followups", icon: MessageSquare },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/accounts", label: "Accounts", icon: Users },
 ];
 
 function NavIcon({

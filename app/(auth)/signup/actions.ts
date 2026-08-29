@@ -1,10 +1,9 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
-import { generateStudentPin } from "@/lib/auth/generate-pin";
 import type { UserRole } from "@/types/database";
 
-export type SignupState = { error: string | null; success: boolean; pin?: string };
+export type SignupState = { error: string | null; success: boolean };
 
 function emailForSignup(role: UserRole, identifier: string) {
   if (role === "student") return `${identifier}@lrn.safevoice.internal`;
@@ -17,10 +16,10 @@ function emailForSignup(role: UserRole, identifier: string) {
 async function getDefaultSchool(service: ReturnType<typeof createServiceClient>) {
   const { data } = await service
     .from("schools")
-    .select("id, deped_school_id")
+    .select("id")
     .order("created_at", { ascending: true })
     .limit(1)
-    .maybeSingle<{ id: string; deped_school_id: string | null }>();
+    .maybeSingle<{ id: string }>();
   return data;
 }
 
@@ -52,32 +51,18 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     return { error: "No school has been configured yet. Contact your system administrator.", success: false };
   }
 
-  // Students sign in with a school-issued PIN (derived from their name +
-  // their school's DepEd School ID) instead of choosing a password — see
-  // lib/auth/generate-pin.ts. Staff/admin still choose their own password.
-  let password: string;
-  let pin: string | undefined;
-  if (role === "student") {
-    if (!school.deped_school_id) {
-      return {
-        error: "Your school hasn't been set up with a DepEd School ID yet. Contact your admin.",
-        success: false,
-      };
-    }
-    pin = generateStudentPin(fullName, school.deped_school_id);
-    password = pin;
-  } else {
-    password = String(formData.get("password") ?? "");
-    const confirmPassword = String(formData.get("confirm_password") ?? "");
-    if (!password) {
-      return { error: "Please fill in every field.", success: false };
-    }
-    if (password !== confirmPassword) {
-      return { error: "Passwords don't match.", success: false };
-    }
-    if (password.length < 8) {
-      return { error: "Password must be at least 8 characters.", success: false };
-    }
+  // Every role — including students, logging in with their LRN — chooses
+  // their own password at signup.
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+  if (!password) {
+    return { error: "Please fill in every field.", success: false };
+  }
+  if (password !== confirmPassword) {
+    return { error: "Passwords don't match.", success: false };
+  }
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters.", success: false };
   }
 
   const email = emailForSignup(role, identifier);
@@ -111,5 +96,5 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     return { error: message, success: false };
   }
 
-  return { error: null, success: true, pin };
+  return { error: null, success: true };
 }

@@ -11,7 +11,9 @@ const ROLE_HOME: Record<UserRole, string> = {
 function roleForPath(pathname: string): UserRole | null {
   if (pathname.startsWith("/student")) return "student";
   if (pathname.startsWith("/staff")) return "staff";
-  if (pathname.startsWith("/admin")) return "admin";
+  // /admin/login is the admin sign-in page itself — it can't require an
+  // already-authenticated admin session, or no one could ever reach it.
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") return "admin";
   return null;
 }
 

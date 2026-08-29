@@ -10,6 +10,7 @@ import { ReportStageTracker } from "@/components/report-stage-tracker";
 import { addFollowup, revealIdentity, updateReportStatus } from "@/app/admin/actions";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
 import type {
+  AiAssessment,
   Profile,
   Report,
   ReportBullyDetails,
@@ -76,24 +77,34 @@ export default async function AdminReportDetailPage({
 
   if (!report) notFound();
 
-  const [{ data: bully }, { data: conflict }, { data: followups }, { count: recentReportCount }] = await Promise.all([
-    supabase.from("report_bully_details").select("*").eq("report_id", id).maybeSingle<ReportBullyDetails>(),
-    supabase.from("report_conflict_details").select("*").eq("report_id", id).maybeSingle<ReportConflictDetails>(),
-    supabase
-      .from("report_followups")
-      .select("*")
-      .eq("report_id", id)
-      .order("created_at", { ascending: true })
-      .returns<ReportFollowup[]>(),
-    // Purely mechanical, content-blind count for staff awareness — not a
-    // credibility judgment. See the comment on countRecentReportsByReporter
-    // in app/admin/page.tsx for why this stays neutral by design.
-    supabase
-      .from("reports")
-      .select("id", { count: "exact", head: true })
-      .eq("reporter_id", report.reporter_id)
-      .gte("created_at", recentWindowStartIso()),
-  ]);
+  const [{ data: bully }, { data: conflict }, { data: followups }, { count: recentReportCount }, { data: assessments }] =
+    await Promise.all([
+      supabase.from("report_bully_details").select("*").eq("report_id", id).maybeSingle<ReportBullyDetails>(),
+      supabase.from("report_conflict_details").select("*").eq("report_id", id).maybeSingle<ReportConflictDetails>(),
+      supabase
+        .from("report_followups")
+        .select("*")
+        .eq("report_id", id)
+        .order("created_at", { ascending: true })
+        .returns<ReportFollowup[]>(),
+      // Purely mechanical, content-blind count for staff awareness — not a
+      // credibility judgment. See the comment on countRecentReportsByReporter
+      // in app/admin/page.tsx for why this stays neutral by design.
+      supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("reporter_id", report.reporter_id)
+        .gte("created_at", recentWindowStartIso()),
+      supabase
+        .from("ai_assessments")
+        .select("*")
+        .eq("report_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .returns<AiAssessment[]>(),
+    ]);
+
+  const assessment = assessments?.[0] ?? null;
 
   // Table doesn't exist until supabase/migrations/0006_report_stage_progress.sql
   // has been run — hide the tracker rather than break the page.
@@ -184,21 +195,37 @@ export default async function AdminReportDetailPage({
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <h2 className="mb-3 text-lg font-semibold">Report details</h2>
-          <dl className="space-y-3 text-sm">
-            <Field label="Description" value={report.description ?? "—"} />
-            {bully && (
-              <>
-                <Field label="Who was involved" value={bully.offender_description ?? "—"} />
-                <Field label="Location" value={bully.location ?? "—"} />
-              </>
-            )}
-            {conflict && (
-              <Field label="Dominating / escalating" value={conflict.dominant_party_description ?? "—"} />
-            )}
-          </dl>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <h2 className="mb-3 text-lg font-semibold">Report details</h2>
+            <dl className="space-y-3 text-sm">
+              <Field label="Description" value={report.description ?? "—"} />
+              {bully && (
+                <>
+                  <Field label="Who was involved" value={bully.offender_description ?? "—"} />
+                  <Field label="Location" value={bully.location ?? "—"} />
+                </>
+              )}
+              {conflict && (
+                <Field label="Dominating / escalating" value={conflict.dominant_party_description ?? "—"} />
+              )}
+            </dl>
+          </Card>
+
+          {assessment && (
+            <Card>
+              <h2 className="mb-3 text-lg font-semibold">AI assessment</h2>
+              <p className="text-sm text-[var(--color-text-muted)]">{assessment.staff_summary}</p>
+              {assessment.recommendation && (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+                  {assessment.recommendation.split("\n").map((rec, i) => (
+                    <li key={i}>{rec}</li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+        </div>
 
         <FollowupPanel
           followups={followups ?? []}

@@ -84,6 +84,45 @@ export async function rejectAccount(profileId: string) {
   revalidatePath("/admin");
 }
 
+// Students and staff now choose their own password at signup (see
+// app/(auth)/signup/actions.ts) and there's no self-service reset — a
+// synthetic LRN email has no real inbox to send a reset link to anyway (see
+// app/forgot-password/page.tsx). This is the fallback for "I forgot it" or
+// any other login trouble: an admin sets a new one directly. Scoped to
+// student/staff profiles only — resetting a fellow admin's password isn't
+// exposed here.
+export async function changeUserPassword(
+  profileId: string,
+  newPassword: string,
+): Promise<{ error: string | null }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+
+  if (newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+
+  const supabase = await createClient();
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", profileId)
+    .single();
+
+  if (!target || target.role === "admin") {
+    return { error: "That account can't be changed here." };
+  }
+
+  const service = createServiceClient();
+  const { error } = await service.auth.admin.updateUserById(profileId, { password: newPassword });
+  if (error) {
+    console.error("[changeUserPassword] updateUserById failed", { profileId, error });
+    return { error: "Couldn't update the password. Please try again." };
+  }
+
+  return { error: null };
+}
+
 // Every identity reveal on an anonymous report is logged — this is the only
 // path in the app that connects an anonymous report back to a reporter.
 // `identity_disclosure_log.reason` is free text (not an enum) in this
