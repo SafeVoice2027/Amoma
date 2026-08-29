@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
+import { RegisterServiceWorker } from "@/components/register-service-worker";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,6 +13,18 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Amoma",
   description: "A safe, confidential way to report bullying and conflict.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Amoma",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#6c4fe0" },
+    { media: "(prefers-color-scheme: dark)", color: "#9c85fa" },
+  ],
 };
 
 // Runs before paint so a saved theme choice applies immediately instead of
@@ -34,7 +47,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   );
 }
