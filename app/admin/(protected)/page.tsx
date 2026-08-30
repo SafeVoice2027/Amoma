@@ -105,7 +105,7 @@ export default async function AdminHomePage() {
       .from("profiles")
       .select("id, full_name, role, lrn, deped_email, created_at")
       .eq("status", "pending")
-      .in("role", ["staff", "student"] satisfies UserRole[])
+      .in("role", ["staff", "student", "admin"] satisfies UserRole[])
       .order("created_at", { ascending: true })
       .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[]>(),
   ]);

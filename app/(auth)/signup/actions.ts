@@ -31,10 +31,14 @@ async function getDefaultSchool(service: ReturnType<typeof createServiceClient>)
 // real inbox to confirm) as it does for real staff/admin DepEd emails.
 export async function signup(_prevState: SignupState, formData: FormData): Promise<SignupState> {
   const role = formData.get("role") as UserRole;
+  // Students aren't asked for a name at all — collecting one at signup would
+  // undercut the anonymity every other part of the app promises them.
+  // Staff/admin are real school personnel using a real email, so a name is
+  // still required for them.
   const fullName = String(formData.get("full_name") ?? "").trim();
   const identifier = String(formData.get("identifier") ?? "").trim();
 
-  if (!role || !fullName || !identifier) {
+  if (!role || !identifier || (role !== "student" && !fullName)) {
     return { error: "Please fill in every field.", success: false };
   }
   if (role === "student" && !/^\d{6,}$/.test(identifier)) {
@@ -83,7 +87,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const { error: profileError } = await service.from("profiles").insert({
     id: created.user.id,
     role,
-    full_name: fullName,
+    full_name: role === "student" ? null : fullName,
     lrn: role === "student" ? identifier : null,
     deped_email: role !== "student" ? identifier : null,
     school_id: school.id,

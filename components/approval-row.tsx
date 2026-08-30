@@ -4,6 +4,8 @@ import { useTransition } from "react";
 import { Button, Card } from "@/components/ui";
 import type { UserRole } from "@/types/database";
 
+const ROLE_LABELS: Record<UserRole, string> = { student: "Student", staff: "Staff", admin: "Admin" };
+
 interface PendingProfile {
   id: string;
   full_name: string | null;
@@ -27,9 +29,11 @@ export function ApprovalRow({
   return (
     <Card className="flex items-center justify-between">
       <div>
-        <p className="font-medium">{profile.full_name ?? "(no name on file)"}</p>
+        <p className="font-medium">
+          {profile.full_name ?? (profile.role === "student" ? "Anonymous student" : "(no name on file)")}
+        </p>
         <p className="text-sm text-[var(--color-text-muted)]">
-          {profile.role === "student" ? "Student" : "Staff"} · {profile.lrn ?? profile.deped_email} · requested{" "}
+          {ROLE_LABELS[profile.role]} · {profile.lrn ?? profile.deped_email} · requested{" "}
           {new Date(profile.created_at).toLocaleDateString()}
         </p>
       </div>

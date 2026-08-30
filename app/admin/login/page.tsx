@@ -31,6 +31,13 @@ function AdminLoginForm() {
 
   return (
     <Card className="!p-4">
+      <p className="mb-3 text-center text-sm text-[var(--color-text-muted)]">
+        Don&apos;t have an account?{" "}
+        <Link href="/admin/signup" className="font-medium text-[var(--color-brand)]">
+          Request Access
+        </Link>
+      </p>
+
       <h1 className="text-lg font-semibold">School Administrator Log In</h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
         Log in with your school administrator credentials.

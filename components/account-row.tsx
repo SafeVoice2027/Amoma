@@ -60,7 +60,9 @@ export function AccountRow({
     <Card>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate font-medium">{profile.full_name ?? "(no name on file)"}</p>
+          <p className="truncate font-medium">
+            {profile.full_name ?? (profile.role === "student" ? "Anonymous student" : "(no name on file)")}
+          </p>
           <p className="text-sm text-[var(--color-text-muted)]">
             {profile.role === "student" ? "Student" : "Staff"} · {profile.lrn ?? profile.deped_email}
           </p>

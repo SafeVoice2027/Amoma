@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { classifySeverity } from "@/lib/ai/severity";
-import { getSupportReply, type SupportChatContext } from "@/lib/ai/support-chat";
 import { getCurrentProfile } from "@/lib/auth";
 import type { ReportCategory, SeverityLevel } from "@/types/database";
 
@@ -217,16 +216,4 @@ export async function submitConflictReport(formData: FormData) {
   });
 
   redirect("/student");
-}
-
-// Ephemeral post-submission support chat — never persisted, distinct from
-// the report_followups thread (which is the record staff/admin see).
-export async function sendSupportChatMessage(
-  context: SupportChatContext,
-): Promise<{ reply: string } | { error: string }> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { error: "Please sign in again to keep chatting." };
-
-  const reply = await getSupportReply(context);
-  return { reply };
 }

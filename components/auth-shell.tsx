@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Shield } from "lucide-react";
 
 // Shared chrome for every unauthenticated auth screen (login, signup,
 // forgot-password, and the standalone admin login). Sized to fit a typical
@@ -10,11 +9,12 @@ export function AuthShell({ children, footerNote }: { children: ReactNode; foote
   return (
     <div className="flex min-h-dvh flex-1 items-center justify-center bg-[var(--color-primary-50)] px-4 py-4">
       <div className="w-full max-w-md">
-        <div className="mb-3 flex flex-col items-center text-center">
-          <div className="mb-1.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-primary-600)] shadow-sm">
-            <Shield className="h-5 w-5 text-white" strokeWidth={2} fill="none" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-[var(--color-primary-800)]">Amoma</span>
+        <div className="mb-2 flex flex-col items-center text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/report-hero.png" alt="" className="h-16 w-16 rounded-2xl shadow-sm" />
+          <span className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-primary-800)]">
+            Amoma
+          </span>
           <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">Your voice. Safe and heard.</p>
         </div>
 

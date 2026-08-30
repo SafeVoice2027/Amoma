@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { RegisterServiceWorker } from "@/components/register-service-worker";
 import "./globals.css";
 
@@ -44,10 +45,15 @@ const THEME_INIT_SCRIPT = `
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        {/* next/script with strategy="beforeInteractive" — Next.js injects
+            this into the real document <head> itself and runs it before
+            hydration; it must NOT be nested in a hand-written <head> element
+            (that conflicts with Next's own head management and was causing
+            a hydration mismatch on every page load). */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         {children}
         <RegisterServiceWorker />
       </body>

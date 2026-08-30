@@ -1,6 +1,5 @@
-// Shared crisis hotline list — used by the pre-report safety check
-// (components/danger-check.tsx) and the post-report support chat
-// (components/support-chat.tsx) so both always show the same numbers.
+// Crisis hotline list shown by the pre-report safety check
+// (components/danger-check.tsx).
 export const CRISIS_LINES = [
   {
     label: "ChildLine Philippines",

@@ -8,12 +8,15 @@ const ROLE_HOME: Record<UserRole, string> = {
   admin: "/admin",
 };
 
+// /admin/login and /admin/signup are the unauthenticated entry points to the
+// admin role itself — they can't require an already-authenticated admin
+// session, or no one could ever reach them.
+const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/signup"];
+
 function roleForPath(pathname: string): UserRole | null {
   if (pathname.startsWith("/student")) return "student";
   if (pathname.startsWith("/staff")) return "staff";
-  // /admin/login is the admin sign-in page itself — it can't require an
-  // already-authenticated admin session, or no one could ever reach it.
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") return "admin";
+  if (pathname.startsWith("/admin") && !ADMIN_PUBLIC_PATHS.includes(pathname)) return "admin";
   return null;
 }
 

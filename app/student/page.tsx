@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Heart, Shield, User, ArrowRight, Siren } from "lucide-react";
+import { AlertTriangle, Heart, User, ArrowRight, Siren } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ReportsList } from "@/components/reports-list";
@@ -143,9 +143,8 @@ export default async function StudentHomePage() {
       </div>
 
       <div className="mb-8 flex flex-col items-center text-center">
-        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary-600)] shadow-sm">
-          <Shield className="h-6 w-6 text-white" strokeWidth={2} />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shield-heart-icon.jpg" alt="" className="mb-2 h-14 w-auto rounded-xl shadow-sm" />
         <span className="text-xl font-semibold tracking-tight text-[var(--color-primary-800)]">
           Amoma
         </span>

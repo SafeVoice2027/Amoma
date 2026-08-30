@@ -10,7 +10,6 @@ import type { UserRole } from "@/types/database";
 const ROLE_TABS: { role: UserRole; label: string; idLabel: string; idType: string; idPlaceholder: string }[] = [
   { role: "student", label: "Student", idLabel: "LRN", idType: "text", idPlaceholder: "123456789012" },
   { role: "staff", label: "Staff", idLabel: "DepEd email", idType: "email", idPlaceholder: "you@deped.gov.ph" },
-  { role: "admin", label: "Admin", idLabel: "DepEd email", idType: "email", idPlaceholder: "you@deped.gov.ph" },
 ];
 
 const initialState: SignupState = { error: null, success: false };
@@ -40,7 +39,7 @@ export function SignupForm() {
 
   return (
     <Card>
-      <div className="mb-6 grid grid-cols-3 gap-2 rounded-xl bg-[var(--color-background)] p-1">
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-background)] p-1">
         {ROLE_TABS.map((t) => (
           <button
             key={t.role}
@@ -67,31 +66,33 @@ export function SignupForm() {
       <h1 className="text-lg font-semibold">Request Access</h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
         {role === "student"
-          ? "Tell us who you are and choose a password to log in with your LRN."
+          ? "Choose a password to log in with your LRN. We don't ask for your name — your reports stay anonymous."
           : "An admin will review and approve your account before you can log in."}
       </p>
 
       <form action={formAction} className="mt-5 space-y-4">
         <input type="hidden" name="role" value={role} />
 
-        <div>
-          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
-            Full name
-          </label>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-              <User size={18} />
-            </span>
-            <input
-              id="full_name"
-              name="full_name"
-              type="text"
-              required
-              autoComplete="name"
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
-            />
+        {role !== "student" && (
+          <div>
+            <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
+              Full name
+            </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
+                <User size={18} />
+              </span>
+              <input
+                id="full_name"
+                name="full_name"
+                type="text"
+                required
+                autoComplete="name"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <label htmlFor="identifier" className="mb-1 block text-sm font-medium">
