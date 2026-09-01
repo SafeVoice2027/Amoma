@@ -9,10 +9,15 @@ export type AccountStatus = "pending" | "approved" | "rejected" | "suspended";
 export type ReportType = "bully" | "conflict";
 export type ReportStatus = "unresolved" | "in_process" | "resolved";
 export type SeverityLevel = "minor" | "less_serious" | "serious" | "critical";
-// Bully reports are self-classified by the student in Step 2 of the report
-// wizard; conflict reports are tagged 'conflict' directly at submission —
-// see supabase/migrations/0002_add_report_category.sql.
+// Bully reports are self-classified by the student on Page 2 of the report
+// flow; conflict reports are tagged 'conflict' directly at submission —
+// see supabase/migrations/0002_add_report_category.sql. A bully report can
+// select more than one BullyingType (see report_bully_details.bullying_types
+// below) — `reports.category` holds just the first-selected type, kept for
+// the existing single-value category filter/badge UI.
 export type ReportCategory = "social" | "cyber" | "physical" | "verbal" | "conflict";
+// See supabase/migrations/0009_consolidated_report_fields.sql.
+export type BullyingType = "social" | "cyber" | "physical" | "verbal";
 export type NotificationChannel = "push" | "sms" | "email";
 export type NotificationUrgency = "normal" | "high";
 // See supabase/migrations/0003_add_bug_reports.sql.
@@ -35,6 +40,13 @@ export interface Profile {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  // See supabase/migrations/0010_handlers_and_teacher_tags.sql. Only
+  // meaningful for role = 'staff': is_handler splits Staff into Handlers
+  // (case owners, e.g. Prefect of Discipline / CFLFO) vs. Teachers
+  // (view-only, tagged into specific reports). employee_number is a
+  // Teacher's login identifier in place of a DepEd email.
+  is_handler: boolean;
+  employee_number: string | null;
 }
 
 export interface Report {
@@ -75,20 +87,20 @@ export interface StaffReportsView {
 
 export interface ReportBullyDetails {
   report_id: string;
-  offender_description: string | null;
-  happened_before: boolean | null;
-  prior_incident_details: string | null;
-  location: string | null;
-  occurred_at: string | null;
-  witnesses: string | null;
+  bullying_types: BullyingType[];
+  victim_grade_section: string | null;
+  oppressor_grade_section: string | null;
+  oppressor_name: string | null;
+  setting: string | null;
 }
 
 export interface ReportConflictDetails {
   report_id: string;
   conflict_reason: string | null;
-  dominant_party_description: string | null;
-  wants_solution: boolean | null;
-  wants_breathing_exercise: boolean | null;
+  victim_grade_section: string | null;
+  oppressor_grade_section: string | null;
+  oppressor_name: string | null;
+  setting: string | null;
 }
 
 export interface ReportEvidence {
@@ -116,6 +128,19 @@ export interface AiAssessment {
   staff_summary: string | null;
   model_version: string | null;
   created_at: string;
+}
+
+// See supabase/migrations/0010_handlers_and_teacher_tags.sql. An Admin-only
+// "please look at this" flag on a report directed at one Teacher — distinct
+// from reports.assigned_staff_id, which tracks case ownership.
+export interface ReportTeacherTag {
+  id: string;
+  report_id: string;
+  teacher_id: string;
+  tagged_by: string | null;
+  note: string | null;
+  created_at: string;
+  read_at: string | null;
 }
 
 export interface IdentityDisclosureLog {

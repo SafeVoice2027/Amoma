@@ -5,8 +5,10 @@ import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
 import { StatusSelect } from "@/components/status-select";
 import { StaffStageChecklist } from "@/components/staff-stage-checklist";
+import { ReportStageTracker } from "@/components/report-stage-tracker";
 import { addFollowup, advanceReportStage, revertReportStage, updateReportStatus } from "@/app/staff/actions";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
+import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
 import type {
   AiAssessment,
   Profile,
@@ -138,30 +140,28 @@ export default async function StaffReportDetailPage({
               <Field label="Description" value={report.description ?? "—"} />
               {bully && (
                 <>
-                  <Field label="Who was involved" value={bully.offender_description ?? "—"} />
-                  <Field label="Happened before" value={bully.happened_before ? "Yes" : "No"} />
-                  {bully.happened_before && (
-                    <Field label="Prior incidents" value={bully.prior_incident_details ?? "—"} />
-                  )}
-                  <Field label="Location" value={bully.location ?? "—"} />
                   <Field
-                    label="When"
-                    value={bully.occurred_at ? new Date(bully.occurred_at).toLocaleString() : "—"}
+                    label="Type of bullying"
+                    value={bully.bullying_types.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") || "—"}
                   />
-                  <Field label="Witnesses" value={bully.witnesses ?? "—"} />
+                  <Field label="Victim" value={bully.victim_grade_section ?? "—"} />
+                  <Field
+                    label="Oppressor"
+                    value={[bully.oppressor_grade_section, bully.oppressor_name].filter(Boolean).join(" · ") || "—"}
+                  />
+                  <Field label="Setting" value={bully.setting ?? "—"} />
                 </>
               )}
               {conflict && (
                 <>
-                  <Field label="Dominating / escalating" value={conflict.dominant_party_description ?? "—"} />
+                  <Field label="Victim" value={conflict.victim_grade_section ?? "—"} />
                   <Field
-                    label="Support wanted"
+                    label="Oppressor"
                     value={
-                      [conflict.wants_solution && "Suggested resolution", conflict.wants_breathing_exercise && "Calming exercises"]
-                        .filter(Boolean)
-                        .join(", ") || "—"
+                      [conflict.oppressor_grade_section, conflict.oppressor_name].filter(Boolean).join(" · ") || "—"
                     }
                   />
+                  <Field label="Setting" value={conflict.setting ?? "—"} />
                 </>
               )}
             </dl>
@@ -181,13 +181,28 @@ export default async function StaffReportDetailPage({
             </Card>
           )}
 
-          {stageProgress && (
+          {stageProgress && profile.is_handler && (
             <StaffStageChecklist
               reportId={id}
               progress={stageProgress}
               advanceStage={advanceStage}
               revertStage={revertStage}
             />
+          )}
+
+          {/* Teachers can see case progress but not act on it — only
+              Handlers drive the checklist (see
+              supabase/migrations/0010_handlers_and_teacher_tags.sql). */}
+          {stageProgress && !profile.is_handler && (
+            <Card>
+              <h2 className="mb-4 text-lg font-semibold">Case status</h2>
+              <ReportStageTracker
+                role="staff"
+                reportId={id}
+                reportCreatedAt={report.created_at}
+                initialProgress={stageProgress}
+              />
+            </Card>
           )}
         </div>
 

@@ -39,6 +39,20 @@ export async function markUrgentNotificationsRead() {
   revalidatePath("/staff");
 }
 
+// A Teacher opening a tag from their mail inbox (components/teacher-tags-mail.tsx)
+// marks it read. RLS restricts this update to the tagged teacher themselves
+// (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+export async function markTeacherTagRead(tagId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("report_teacher_tags")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", tagId)
+    .is("read_at", null);
+  if (error) console.error("[markTeacherTagRead] update failed", { tagId, error });
+  revalidatePath("/staff");
+}
+
 // The real RLS policy only lets a staff member UPDATE a report already
 // assigned to them (`assigned_staff_id = auth.uid()`) — there's no policy
 // allowing them to self-assign first, so that first write has to go through

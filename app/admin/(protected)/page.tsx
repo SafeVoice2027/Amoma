@@ -6,14 +6,18 @@ import { approveAccount, rejectAccount } from "@/app/admin/actions";
 import { ApprovalRow } from "@/components/approval-row";
 import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
+import { SeverityReportBoard } from "@/components/severity-report-board";
 import { formatCaseId } from "@/lib/reports/case-id";
 import type { Profile, StaffReportsView, UserRole } from "@/types/database";
 
 type ReportRow = Pick<
   StaffReportsView,
   | "id"
+  | "type"
   | "status"
+  | "severity"
   | "category"
+  | "is_anonymous"
   | "immediate_danger"
   | "assigned_staff_id"
   | "created_at"
@@ -33,7 +37,7 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
   const { data, error } = await supabase
     .from("staff_reports_view")
     .select(
-      "id, status, category, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
+      "id, type, status, severity, category, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
     )
     .order("created_at", { ascending: false })
     .returns<ReportRow[]>();
@@ -44,7 +48,9 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
 
   const fallback = await supabase
     .from("staff_reports_view")
-    .select("id, status, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id")
+    .select(
+      "id, type, status, severity, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
+    )
     .order("created_at", { ascending: false })
     .returns<Omit<ReportRow, "category">[]>();
 
@@ -147,9 +153,22 @@ export default async function AdminHomePage() {
     </>
   );
 
+  const severityRows = allReports.map((r) => ({
+    id: r.id,
+    caseId: formatCaseId(r.id, r.created_at),
+    type: r.type,
+    status: r.status,
+    severity: r.severity,
+    isAnonymous: r.is_anonymous,
+    createdAt: r.created_at,
+  }));
+
   return (
     <div>
       <AdminCaseOverview schoolName={school?.name ?? "Your school"} statsSlot={statsSlot} rows={rows} />
+
+      <h2 className="mb-4 mt-10 text-lg font-semibold">By severity</h2>
+      <SeverityReportBoard rows={severityRows} hrefBase="/admin/reports" />
 
       <div className="mb-4 mt-10 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Account approvals</h2>

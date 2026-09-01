@@ -6,6 +6,7 @@ import { useState } from "react";
 import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, Users, Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
+import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Case overview", icon: LayoutGrid },
@@ -49,18 +50,21 @@ export function AdminSidebar({
   urgentItems,
   unreadUrgentCount,
   markUrgentRead,
+  tagItems,
 }: {
   fullName: string;
   onSignOut: () => Promise<void>;
   urgentItems: UrgentNotificationItem[];
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
+  tagItems: TeacherTagMailItem[];
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <nav className="flex w-16 flex-shrink-0 flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
+      <TeacherTagsMail items={tagItems} reportBasePath="/admin/reports" mode="sent" panelPlacement="right" />
       <UrgentNotificationBell
         items={urgentItems}
         unreadCount={unreadUrgentCount}

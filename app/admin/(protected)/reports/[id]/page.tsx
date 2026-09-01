@@ -7,8 +7,10 @@ import { StatusSelect } from "@/components/status-select";
 import { RevealIdentity } from "@/components/reveal-identity";
 import { CATEGORY_LABELS, CATEGORY_STYLES } from "@/components/case-overview-table";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
-import { addFollowup, revealIdentity, updateReportStatus } from "@/app/admin/actions";
+import { TagTeacherPanel } from "@/components/tag-teacher-panel";
+import { addFollowup, revealIdentity, tagTeacher, updateReportStatus } from "@/app/admin/actions";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
+import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
 import type {
   AiAssessment,
   Profile,
@@ -115,6 +117,30 @@ export default async function AdminReportDetailPage({
     .maybeSingle<ReportStageProgress>();
   if (stageError) console.error("[admin report detail] stage progress query failed", stageError);
 
+  // is_handler doesn't exist until
+  // supabase/migrations/0010_handlers_and_teacher_tags.sql has been run —
+  // filtering on it fails the whole query. Fall back to every approved
+  // staff member rather than hiding the Tag Teacher list entirely.
+  let teachersResult = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "staff")
+    .eq("is_handler", false)
+    .eq("status", "approved")
+    .order("full_name", { ascending: true })
+    .returns<Pick<Profile, "id" | "full_name">[]>();
+  if (teachersResult.error) {
+    console.error("[admin report detail] teachers query with is_handler failed, retrying without it", teachersResult.error);
+    teachersResult = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("role", "staff")
+      .eq("status", "approved")
+      .order("full_name", { ascending: true })
+      .returns<Pick<Profile, "id" | "full_name">[]>();
+  }
+  const teachers = teachersResult.data;
+
   const authorIds = [...new Set((followups ?? []).map((f) => f.author_id))];
   const { data: authorProfiles } = authorIds.length
     ? await supabase
@@ -144,6 +170,11 @@ export default async function AdminReportDetailPage({
   async function reveal(reason: string, notes: string) {
     "use server";
     return revealIdentity(id, reason, notes);
+  }
+
+  async function tag(teacherId: string, note: string) {
+    "use server";
+    return tagTeacher(id, teacherId, note);
   }
 
   return (
@@ -202,15 +233,34 @@ export default async function AdminReportDetailPage({
               <Field label="Description" value={report.description ?? "—"} />
               {bully && (
                 <>
-                  <Field label="Who was involved" value={bully.offender_description ?? "—"} />
-                  <Field label="Location" value={bully.location ?? "—"} />
+                  <Field
+                    label="Type of bullying"
+                    value={bully.bullying_types.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") || "—"}
+                  />
+                  <Field label="Victim" value={bully.victim_grade_section ?? "—"} />
+                  <Field
+                    label="Oppressor"
+                    value={[bully.oppressor_grade_section, bully.oppressor_name].filter(Boolean).join(" · ") || "—"}
+                  />
+                  <Field label="Setting" value={bully.setting ?? "—"} />
                 </>
               )}
               {conflict && (
-                <Field label="Dominating / escalating" value={conflict.dominant_party_description ?? "—"} />
+                <>
+                  <Field label="Victim" value={conflict.victim_grade_section ?? "—"} />
+                  <Field
+                    label="Oppressor"
+                    value={
+                      [conflict.oppressor_grade_section, conflict.oppressor_name].filter(Boolean).join(" · ") || "—"
+                    }
+                  />
+                  <Field label="Setting" value={conflict.setting ?? "—"} />
+                </>
               )}
             </dl>
           </Card>
+
+          <TagTeacherPanel teachers={(teachers ?? []).map((t) => ({ id: t.id, fullName: t.full_name ?? "(no name on file)" }))} tagTeacher={tag} />
 
           {assessment && (
             <Card>

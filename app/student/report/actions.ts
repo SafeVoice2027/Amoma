@@ -6,19 +6,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { classifySeverity } from "@/lib/ai/severity";
 import { getCurrentProfile } from "@/lib/auth";
-import type { ReportCategory, SeverityLevel } from "@/types/database";
+import type { BullyingType, SeverityLevel } from "@/types/database";
 
-const BULLY_CATEGORIES: ReportCategory[] = ["social", "cyber", "physical", "verbal"];
-
-const FREQUENCY_LABELS: Record<string, string> = {
-  one_time: "One time",
-  a_few_times: "A few times",
-  ongoing: "Ongoing / regularly",
-};
+const BULLYING_TYPES: BullyingType[] = ["social", "cyber", "physical", "verbal"];
 
 export type SubmitBullyResult =
   | { error: string }
   | { success: true; severity: SeverityLevel; id: string; createdAt: string };
+
+export type SubmitConflictResult = { error: string } | { success: true; id: string; createdAt: string };
 
 function evidenceTypeFromMime(mime: string): string {
   if (mime.startsWith("video")) return "video";
@@ -75,6 +71,37 @@ async function alertOnCritical(reportId: string, schoolId: string | null, severi
   );
 }
 
+// Handlers triage every incoming report (not just critical ones — that's
+// what alertOnCritical above is for), so they get a notification row on
+// every submission. Separate, normal-urgency path so this doesn't also
+// trigger the "high" urgency alarm sound in UrgentNotificationBell for
+// routine reports. See supabase/migrations/0010_handlers_and_teacher_tags.sql.
+async function notifyHandlersOfNewReport(reportId: string, schoolId: string | null) {
+  if (!schoolId) return;
+
+  const service = createServiceClient();
+  const { data: handlers } = await service
+    .from("profiles")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("role", "staff")
+    .eq("is_handler", true)
+    .eq("status", "approved")
+    .returns<{ id: string }[]>();
+
+  if (!handlers?.length) return;
+
+  await service.from("notifications").insert(
+    handlers.map((h) => ({
+      recipient_id: h.id,
+      report_id: reportId,
+      channel: "push" as const,
+      urgency: "normal" as const,
+      sent_at: new Date().toISOString(),
+    })),
+  );
+}
+
 export async function submitBullyReport(formData: FormData): Promise<SubmitBullyResult> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
@@ -83,21 +110,14 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
   const inDanger = formData.get("in_immediate_danger") === "true";
   const isAnonymous = formData.get("is_anonymous") === "true";
   const description = String(formData.get("description") ?? "");
-  const additionalNote = String(formData.get("additional_note") ?? "").trim();
-  const offenderDescription = String(formData.get("offender_description") ?? "");
-  const bullyTypeRaw = String(formData.get("bully_type") ?? "");
-  const bullyType = BULLY_CATEGORIES.includes(bullyTypeRaw as ReportCategory)
-    ? (bullyTypeRaw as ReportCategory)
-    : null;
-  // "yes" | "no" | "unsure" -> true | false | null
-  const happenedBeforeRaw = String(formData.get("happened_before") ?? "");
-  const happenedBefore = happenedBeforeRaw === "yes" ? true : happenedBeforeRaw === "no" ? false : null;
-  const frequency = String(formData.get("frequency") ?? "");
-  const location = String(formData.get("location") ?? "");
-  const occurredAt = String(formData.get("occurred_at") ?? "");
-  const witnesses = String(formData.get("witnesses") ?? "");
-
-  const fullDescription = additionalNote ? `${description}\n\nAdditional note: ${additionalNote}` : description;
+  const bullyingTypes = formData
+    .getAll("bullying_types")
+    .map((v) => String(v))
+    .filter((v): v is BullyingType => BULLYING_TYPES.includes(v as BullyingType));
+  const victimGradeSection = String(formData.get("victim_grade_section") ?? "").trim();
+  const oppressorGradeSection = String(formData.get("oppressor_grade_section") ?? "").trim();
+  const oppressorName = String(formData.get("oppressor_name") ?? "").trim();
+  const setting = String(formData.get("setting") ?? "").trim();
 
   const { data: report, error } = await supabase
     .from("reports")
@@ -107,7 +127,10 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
       school_id: profile.school_id,
       is_anonymous: isAnonymous,
       immediate_danger: inDanger,
-      description: fullDescription,
+      description,
+      // Single-value column kept for the existing category filter/badge UI —
+      // the full multi-select set lives in report_bully_details.bullying_types.
+      category: bullyingTypes[0] ?? null,
     })
     .select("id, school_id, created_at")
     .single();
@@ -118,21 +141,24 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
 
   await supabase.from("report_bully_details").insert({
     report_id: report.id,
-    offender_description: offenderDescription || null,
-    happened_before: happenedBefore,
-    prior_incident_details: happenedBefore && frequency ? `Frequency: ${FREQUENCY_LABELS[frequency]}` : null,
-    location: location || null,
-    occurred_at: occurredAt || null,
-    witnesses: witnesses || null,
+    bullying_types: bullyingTypes,
+    victim_grade_section: victimGradeSection || null,
+    oppressor_grade_section: oppressorGradeSection || null,
+    oppressor_name: oppressorName || null,
+    setting: setting || null,
   });
 
   const files = formData.getAll("evidence").filter((f): f is File => f instanceof File);
   if (files.length) await uploadEvidence(supabase, report.id, profile.id, files);
 
   const assessment = await classifySeverity({
-    description: fullDescription,
-    isRepeatOccurrence: happenedBefore ?? false,
+    description,
+    bullyingTypes,
     inImmediateDanger: inDanger,
+    victimGradeSection: victimGradeSection || null,
+    oppressorGradeSection: oppressorGradeSection || null,
+    oppressorName: oppressorName || null,
+    setting: setting || null,
   });
 
   const service = createServiceClient();
@@ -143,30 +169,20 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
     recommendation: assessment.recommendations.join("\n"),
     model_version: assessment.modelVersion,
   });
-  // Separate updates so a failure on one (e.g. the `category` column not
-  // existing yet on an unmigrated database) can't silently prevent the
-  // other from saving.
   const { error: severityError } = await service
     .from("reports")
     .update({ severity: assessment.severity })
     .eq("id", report.id);
   if (severityError) console.error("[submitBullyReport] failed to save severity", severityError);
 
-  if (bullyType) {
-    const { error: categoryError } = await service
-      .from("reports")
-      .update({ category: bullyType })
-      .eq("id", report.id);
-    if (categoryError) console.error("[submitBullyReport] failed to save category", categoryError);
-  }
-
   await alertOnCritical(report.id, report.school_id, assessment.severity);
+  await notifyHandlersOfNewReport(report.id, report.school_id);
 
   revalidatePath("/student");
   return { success: true, severity: assessment.severity, id: report.id, createdAt: report.created_at };
 }
 
-export async function submitConflictReport(formData: FormData) {
+export async function submitConflictReport(formData: FormData): Promise<SubmitConflictResult> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   const supabase = await createClient();
@@ -174,9 +190,10 @@ export async function submitConflictReport(formData: FormData) {
   const inDanger = formData.get("in_immediate_danger") === "true";
   const isAnonymous = formData.get("is_anonymous") === "true";
   const conflictReason = String(formData.get("conflict_reason") ?? "");
-  const dominantPartyDescription = String(formData.get("dominant_party_description") ?? "");
-  const wantsSolution = formData.get("wants_solution") === "true";
-  const wantsBreathingExercise = formData.get("wants_breathing_exercise") === "true";
+  const victimGradeSection = String(formData.get("victim_grade_section") ?? "").trim();
+  const oppressorGradeSection = String(formData.get("oppressor_grade_section") ?? "").trim();
+  const oppressorName = String(formData.get("oppressor_name") ?? "").trim();
+  const setting = String(formData.get("setting") ?? "").trim();
 
   const { data: report, error } = await supabase
     .from("reports")
@@ -187,33 +204,29 @@ export async function submitConflictReport(formData: FormData) {
       is_anonymous: isAnonymous,
       immediate_danger: inDanger,
       description: conflictReason,
+      category: "conflict",
     })
-    .select("id")
+    .select("id, created_at")
     .single();
 
   if (error || !report) {
     return { error: "We couldn't submit your report right now. Please try again." };
   }
 
-  // Separate update (not part of the insert above) so a database that
-  // hasn't run the `category` column migration yet
-  // (supabase/migrations/0002_add_report_category.sql) still lets the
-  // report itself save — category just silently doesn't persist until then,
-  // same defensive pattern as submitBullyReport.
-  const service = createServiceClient();
-  const { error: categoryError } = await service
-    .from("reports")
-    .update({ category: "conflict" })
-    .eq("id", report.id);
-  if (categoryError) console.error("[submitConflictReport] failed to save category", categoryError);
-
   await supabase.from("report_conflict_details").insert({
     report_id: report.id,
     conflict_reason: conflictReason,
-    dominant_party_description: dominantPartyDescription || null,
-    wants_solution: wantsSolution,
-    wants_breathing_exercise: wantsBreathingExercise,
+    victim_grade_section: victimGradeSection || null,
+    oppressor_grade_section: oppressorGradeSection || null,
+    oppressor_name: oppressorName || null,
+    setting: setting || null,
   });
 
-  redirect("/student");
+  const files = formData.getAll("evidence").filter((f): f is File => f instanceof File);
+  if (files.length) await uploadEvidence(supabase, report.id, profile.id, files);
+
+  await notifyHandlersOfNewReport(report.id, profile.school_id);
+
+  revalidatePath("/student");
+  return { success: true, id: report.id, createdAt: report.created_at };
 }

@@ -123,6 +123,93 @@ export async function changeUserPassword(
   return { error: null };
 }
 
+// Admin-only: tags a Teacher into a report (see
+// supabase/migrations/0010_handlers_and_teacher_tags.sql). Distinct from
+// case ownership — a report can be tagged to any number of teachers.
+// Fires a notification the same way addFollowup() does for a reporter reply.
+export async function tagTeacher(
+  reportId: string,
+  teacherId: string,
+  note: string,
+): Promise<{ error: string | null }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("report_teacher_tags").insert({
+    report_id: reportId,
+    teacher_id: teacherId,
+    tagged_by: admin.id,
+    note: note || null,
+  });
+  if (error) {
+    console.error("[tagTeacher] insert failed", { reportId, teacherId, error });
+    return { error: "Couldn't tag that teacher. Please try again." };
+  }
+
+  const service = createServiceClient();
+  await service.from("notifications").insert({
+    report_id: reportId,
+    recipient_id: teacherId,
+    channel: "push",
+    urgency: "normal",
+    sent_at: new Date().toISOString(),
+  });
+
+  revalidatePath(`/admin/reports/${reportId}`);
+  return { error: null };
+}
+
+// Admin-only toggle, surfaced on the existing Accounts screen rather than a
+// new one — the real Handler identities (Prefect of Discipline / CFLFO)
+// aren't finalized yet, so this stays a flag any Admin can flip once they
+// are, instead of hardcoding specific people.
+export async function toggleIsHandler(profileId: string, isHandler: boolean): Promise<{ error: string | null }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
+  if (!target || target.role !== "staff") return { error: "That account can't be changed here." };
+
+  const { error } = await supabase.from("profiles").update({ is_handler: isHandler }).eq("id", profileId);
+  if (error) {
+    console.error("[toggleIsHandler] update failed", { profileId, error });
+    return { error: "Couldn't update that account. Please try again." };
+  }
+
+  revalidatePath("/admin/accounts");
+  return { error: null };
+}
+
+// Admin-only: sets a Teacher's Employee Number (their login identifier in
+// place of a DepEd email — see get_login_email_by_employee_number() in
+// supabase/migrations/0010_handlers_and_teacher_tags.sql).
+export async function setEmployeeNumber(
+  profileId: string,
+  employeeNumber: string,
+): Promise<{ error: string | null }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
+  if (!target || target.role !== "staff") return { error: "That account can't be changed here." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ employee_number: employeeNumber.trim() || null })
+    .eq("id", profileId);
+  if (error) {
+    console.error("[setEmployeeNumber] update failed", { profileId, error });
+    const message = error.code === "23505" ? "That Employee Number is already in use." : "Couldn't update that account. Please try again.";
+    return { error: message };
+  }
+
+  revalidatePath("/admin/accounts");
+  return { error: null };
+}
+
 // Every identity reveal on an anonymous report is logged — this is the only
 // path in the app that connects an anonymous report back to a reporter.
 // `identity_disclosure_log.reason` is free text (not an enum) in this

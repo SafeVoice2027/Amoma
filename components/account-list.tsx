@@ -12,14 +12,20 @@ interface AccountProfile {
   role: UserRole;
   lrn: string | null;
   deped_email: string | null;
+  is_handler: boolean;
+  employee_number: string | null;
 }
 
 export function AccountList({
   accounts,
   onChangePassword,
+  onToggleHandler,
+  onSetEmployeeNumber,
 }: {
   accounts: AccountProfile[];
   onChangePassword: (profileId: string, newPassword: string) => Promise<{ error: string | null }>;
+  onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
+  onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
 }) {
   const [query, setQuery] = useState("");
 
@@ -51,7 +57,13 @@ export function AccountList({
       ) : (
         <div className="space-y-3">
           {filtered.map((a) => (
-            <AccountRow key={a.id} profile={a} onChangePassword={onChangePassword} />
+            <AccountRow
+              key={a.id}
+              profile={a}
+              onChangePassword={onChangePassword}
+              onToggleHandler={onToggleHandler}
+              onSetEmployeeNumber={onSetEmployeeNumber}
+            />
           ))}
         </div>
       )}

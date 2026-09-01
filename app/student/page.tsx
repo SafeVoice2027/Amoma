@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Heart, User, ArrowRight, Siren } from "lucide-react";
+import { AlertTriangle, Heart, User, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ReportsList } from "@/components/reports-list";
@@ -154,22 +154,6 @@ export default async function StudentHomePage() {
       <p className="mt-1 text-center text-sm text-[var(--color-text-muted)]">
         Your report is anonymous. We&apos;re here to help.
       </p>
-
-      <Link
-        href="/student/report/quick"
-        className="mt-5 flex items-center gap-3 rounded-2xl border border-[var(--color-danger-300)] bg-[var(--color-danger-50)] p-4 transition-shadow hover:shadow-md"
-      >
-        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-danger-600)] text-white">
-          <Siren size={18} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-[var(--color-danger-700)]">In a hurry? Quick Report</p>
-          <p className="text-sm text-[var(--color-danger-700)]">
-            Just a photo/video and what happened — flagged for immediate staff attention.
-          </p>
-        </div>
-        <ArrowRight size={16} className="flex-shrink-0 text-[var(--color-danger-700)]" />
-      </Link>
 
       <div className="mt-6 space-y-4">
         <Link

@@ -224,13 +224,6 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Step-flow layouts (danger check, report wizards) get extra breathing room
-   and larger touch targets so nothing feels cramped or urgent-looking. */
-.step-flow {
-  --step-gap: 1.5rem;
-  --touch-target: 3rem;
-}
-
 /* Report Status Tracker (components/report-stage-tracker.tsx): a highlight
    travels once across the segment leading into the currently-active stage,
    then loops — one direction only (not back-and-forth), signaling ongoing

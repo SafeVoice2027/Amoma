@@ -32,8 +32,26 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   }
 
   const supabase = await createClient();
+
+  // Teachers log in with their Employee Number instead of a DepEd email —
+  // resolve it to the real sign-in email first via a SECURITY DEFINER RPC
+  // (see supabase/migrations/0010_handlers_and_teacher_tags.sql). Anything
+  // that looks like an email (Handlers, Students via LRN below) skips this
+  // lookup entirely.
+  let loginEmail = emailForLogin(role, identifier);
+  if (role === "staff" && !identifier.includes("@")) {
+    const { data: resolvedEmail, error: lookupError } = await supabase.rpc(
+      "get_login_email_by_employee_number",
+      { p_employee_number: identifier },
+    );
+    if (lookupError || !resolvedEmail) {
+      return { error: "That login didn't work. Double-check your details and try again." };
+    }
+    loginEmail = resolvedEmail;
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: emailForLogin(role, identifier),
+    email: loginEmail,
     password,
   });
 
