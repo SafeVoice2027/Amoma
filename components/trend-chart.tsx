@@ -54,7 +54,7 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
       {tab === "types" ? (
         <div>
           <div className="mb-3 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-            <span>Reports This Week</span>
+            <span>Reports This Month</span>
             <span className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-[var(--color-primary-600)]" />

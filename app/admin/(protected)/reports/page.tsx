@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import type { Report } from "@/types/database";
 
 export default async function AdminReportsPage() {
-  await requireProfile("admin");
+  await requireAdminOrHandler();
   const supabase = await createClient();
 
   const { data: reports } = await supabase

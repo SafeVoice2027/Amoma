@@ -6,11 +6,17 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AccountSettingsPanel({
   name,
+  roleLabel,
   helpHubHref,
   onSignOut,
   onNavigate,
 }: {
   name: string;
+  // Admin and Handler now share the same /admin pages (see
+  // supabase/migrations/0010_handlers_and_teacher_tags.sql) with nothing
+  // else in that UI to tell them apart — this is the one place that says
+  // which one you're actually signed in as.
+  roleLabel?: string;
   helpHubHref?: string;
   onSignOut: () => Promise<void>;
   onNavigate?: () => void;
@@ -18,6 +24,7 @@ export function AccountSettingsPanel({
   return (
     <div className="w-64 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg">
       <p className="text-sm font-medium">{name}</p>
+      {roleLabel && <p className="text-xs text-[var(--color-text-muted)]">{roleLabel}</p>}
 
       <div className="mt-3">
         <ThemeToggle />

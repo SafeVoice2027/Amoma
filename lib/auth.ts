@@ -39,3 +39,17 @@ export async function requireProfile(role?: UserRole): Promise<Profile> {
 
   return profile;
 }
+
+// Handlers get "practically the same view" as Admin — the Case overview,
+// All reports, Followups, Analytics, and report detail pages are shared
+// between them (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+// Only Account approvals and Bug reports stay Admin-only, gated separately
+// by requireProfile("admin") on those two pages specifically.
+export async function requireAdminOrHandler(): Promise<Profile> {
+  const profile = await getCurrentProfile();
+  const allowed = profile && (profile.role === "admin" || (profile.role === "staff" && profile.is_handler));
+
+  if (!allowed) redirect("/login");
+
+  return profile!;
+}

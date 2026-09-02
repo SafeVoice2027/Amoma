@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge } from "@/components/ui";
 import { formatCaseId } from "@/lib/reports/case-id";
 import type { Profile, Report, ReportFollowup } from "@/types/database";
@@ -9,7 +9,7 @@ type FollowupRow = Pick<ReportFollowup, "id" | "report_id" | "message" | "author
 type ReportRow = Pick<Report, "id" | "type" | "severity" | "is_anonymous" | "created_at">;
 
 export default async function AdminFollowupsPage() {
-  await requireProfile("admin");
+  await requireAdminOrHandler();
   const supabase = await createClient();
 
   const { data: followups } = await supabase

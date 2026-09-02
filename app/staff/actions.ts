@@ -4,20 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { addFollowup as addFollowupShared } from "@/lib/reports/followups";
-import { advanceReportStage as advanceReportStageShared, revertReportStage as revertReportStageShared } from "@/lib/reports/stage-progress";
 import { getCurrentProfile } from "@/lib/auth";
 import type { ReportStatus } from "@/types/database";
 
 export async function addFollowup(reportId: string, message: string) {
   await addFollowupShared(reportId, message, `/staff/reports/${reportId}`);
-}
-
-export async function advanceReportStage(reportId: string, meetingDate?: string) {
-  return advanceReportStageShared(reportId, `/staff/reports/${reportId}`, meetingDate);
-}
-
-export async function revertReportStage(reportId: string) {
-  return revertReportStageShared(reportId, `/staff/reports/${reportId}`);
 }
 
 export async function markUrgentNotificationsRead() {

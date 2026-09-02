@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { Card } from "@/components/ui";
 import { approveAccount, rejectAccount } from "@/app/admin/actions";
 import { ApprovalRow } from "@/components/approval-row";
@@ -99,21 +99,26 @@ function computeStats(reports: ReportRow[]) {
 }
 
 export default async function AdminHomePage() {
-  const profile = await requireProfile("admin");
+  const profile = await requireAdminOrHandler();
+  const isAdmin = profile.role === "admin";
   const supabase = await createClient();
 
+  // Account approvals stay Admin-only, so a Handler viewer never needs this
+  // query at all.
   const [reportsResult, { data: school }, { data: pending }] = await Promise.all([
     fetchReports(supabase),
     profile.school_id
       ? supabase.from("schools").select("name").eq("id", profile.school_id).maybeSingle<{ name: string }>()
       : Promise.resolve({ data: null }),
-    supabase
-      .from("profiles")
-      .select("id, full_name, role, lrn, deped_email, created_at")
-      .eq("status", "pending")
-      .in("role", ["staff", "student", "admin"] satisfies UserRole[])
-      .order("created_at", { ascending: true })
-      .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[]>(),
+    isAdmin
+      ? supabase
+          .from("profiles")
+          .select("id, full_name, role, lrn, deped_email, created_at")
+          .eq("status", "pending")
+          .in("role", ["staff", "student", "admin"] satisfies UserRole[])
+          .order("created_at", { ascending: true })
+          .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[]>()
+      : Promise.resolve({ data: [] as Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[] }),
   ]);
 
   const allReports = reportsResult;
@@ -165,34 +170,46 @@ export default async function AdminHomePage() {
 
   return (
     <div>
-      <AdminCaseOverview schoolName={school?.name ?? "Your school"} statsSlot={statsSlot} rows={rows} />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+        <AdminCaseOverview schoolName={school?.name ?? "Your school"} statsSlot={statsSlot} rows={rows} />
 
-      <h2 className="mb-4 mt-10 text-lg font-semibold">By severity</h2>
-      <SeverityReportBoard rows={severityRows} hrefBase="/admin/reports" />
-
-      <div className="mb-4 mt-10 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Account approvals</h2>
-        <span className="text-sm text-[var(--color-text-muted)]">{pending?.length ?? 0} pending</span>
-      </div>
-      {!pending?.length ? (
-        <Card>
-          <p className="text-[var(--color-text-muted)]">No pending approvals.</p>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {pending.map((p) => (
-            <ApprovalRow key={p.id} profile={p} onApprove={approveAccount} onReject={rejectAccount} />
-          ))}
+        <div className="xl:sticky xl:top-8">
+          <h2 className="mb-4 text-lg font-semibold">By severity</h2>
+          <div className="max-h-[calc(100vh-8rem)] overflow-y-auto pr-1">
+            <SeverityReportBoard rows={severityRows} hrefBase="/admin/reports" />
+          </div>
         </div>
+      </div>
+
+      {isAdmin && (
+        <>
+          <div className="mb-4 mt-10 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Account approvals</h2>
+            <span className="text-sm text-[var(--color-text-muted)]">{pending?.length ?? 0} pending</span>
+          </div>
+          {!pending?.length ? (
+            <Card>
+              <p className="text-[var(--color-text-muted)]">No pending approvals.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {pending.map((p) => (
+                <ApprovalRow key={p.id} profile={p} onApprove={approveAccount} onReject={rejectAccount} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <div className="mt-10 flex flex-wrap gap-6">
         <Link href="/admin/reports">
           <span className="text-sm font-medium text-[var(--color-brand)]">View full report queue →</span>
         </Link>
-        <Link href="/admin/bug-reports">
-          <span className="text-sm font-medium text-[var(--color-brand)]">View bug reports →</span>
-        </Link>
+        {isAdmin && (
+          <Link href="/admin/bug-reports">
+            <span className="text-sm font-medium text-[var(--color-brand)]">View bug reports →</span>
+          </Link>
+        )}
       </div>
     </div>
   );

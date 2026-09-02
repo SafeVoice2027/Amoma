@@ -1,14 +1,16 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
 import { StatusSelect } from "@/components/status-select";
 import { RevealIdentity } from "@/components/reveal-identity";
 import { CATEGORY_LABELS, CATEGORY_STYLES } from "@/components/case-overview-table";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
+import { StaffStageChecklist } from "@/components/staff-stage-checklist";
 import { TagTeacherPanel } from "@/components/tag-teacher-panel";
 import { addFollowup, revealIdentity, tagTeacher, updateReportStatus } from "@/app/admin/actions";
+import { advanceReportStage, revertReportStage } from "@/lib/reports/stage-progress";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
 import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
 import type {
@@ -17,6 +19,7 @@ import type {
   Report,
   ReportBullyDetails,
   ReportConflictDetails,
+  ReportEvidence,
   ReportFollowup,
   ReportStageProgress,
 } from "@/types/database";
@@ -24,6 +27,13 @@ import type {
 // Must match RECENT_REPORTER_WINDOW_DAYS in app/admin/page.tsx, so the count
 // shown here agrees with the one shown on the Case Overview table.
 const RECENT_REPORTER_WINDOW_DAYS = 7;
+
+const EVIDENCE_TYPE_LABELS: Record<string, string> = {
+  video: "Video",
+  screen_recording: "Screen recording",
+  screenshot: "Screenshot",
+  photo: "Photo",
+};
 
 function recentWindowStartIso(): string {
   return new Date(Date.now() - RECENT_REPORTER_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -72,41 +82,77 @@ export default async function AdminReportDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const profile = await requireProfile("admin");
+  const profile = await requireAdminOrHandler();
+  const isAdmin = profile.role === "admin";
   const supabase = await createClient();
 
   const report = await fetchReport(supabase, id);
 
   if (!report) notFound();
 
-  const [{ data: bully }, { data: conflict }, { data: followups }, { count: recentReportCount }, { data: assessments }] =
-    await Promise.all([
-      supabase.from("report_bully_details").select("*").eq("report_id", id).maybeSingle<ReportBullyDetails>(),
-      supabase.from("report_conflict_details").select("*").eq("report_id", id).maybeSingle<ReportConflictDetails>(),
-      supabase
-        .from("report_followups")
-        .select("*")
-        .eq("report_id", id)
-        .order("created_at", { ascending: true })
-        .returns<ReportFollowup[]>(),
-      // Purely mechanical, content-blind count for staff awareness — not a
-      // credibility judgment. See the comment on countRecentReportsByReporter
-      // in app/admin/page.tsx for why this stays neutral by design.
-      supabase
-        .from("reports")
-        .select("id", { count: "exact", head: true })
-        .eq("reporter_id", report.reporter_id)
-        .gte("created_at", recentWindowStartIso()),
-      supabase
-        .from("ai_assessments")
-        .select("*")
-        .eq("report_id", id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .returns<AiAssessment[]>(),
-    ]);
+  const [
+    { data: bully },
+    { data: conflict },
+    { data: followups },
+    { count: recentReportCount },
+    { data: assessments },
+    { data: evidence },
+  ] = await Promise.all([
+    supabase.from("report_bully_details").select("*").eq("report_id", id).maybeSingle<ReportBullyDetails>(),
+    supabase.from("report_conflict_details").select("*").eq("report_id", id).maybeSingle<ReportConflictDetails>(),
+    supabase
+      .from("report_followups")
+      .select("*")
+      .eq("report_id", id)
+      .order("created_at", { ascending: true })
+      .returns<ReportFollowup[]>(),
+    // Purely mechanical, content-blind count for staff awareness — not a
+    // credibility judgment. See the comment on countRecentReportsByReporter
+    // in app/admin/page.tsx for why this stays neutral by design.
+    supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("reporter_id", report.reporter_id)
+      .gte("created_at", recentWindowStartIso()),
+    supabase
+      .from("ai_assessments")
+      .select("*")
+      .eq("report_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .returns<AiAssessment[]>(),
+    supabase
+      .from("report_evidence")
+      .select("*")
+      .eq("report_id", id)
+      .order("uploaded_at", { ascending: true })
+      .returns<ReportEvidence[]>(),
+  ]);
 
   const assessment = assessments?.[0] ?? null;
+
+  // The bucket is private (RLS-gated, not public) — a signed URL is the
+  // only way to let staff actually open a file from here.
+  const evidenceLinks = await Promise.all(
+    (evidence ?? []).map(async (e) => {
+      const { data: signed } = await supabase.storage.from("report_evidence").createSignedUrl(e.storage_path, 3600);
+      return { ...e, url: signed?.signedUrl ?? null };
+    }),
+  );
+
+  // Both bully and conflict details carry the same victim/oppressor/setting
+  // shape — a report is only ever one type, so exactly one of these is set.
+  const details = bully ?? conflict;
+  const peopleInvolved =
+    [
+      details?.victim_grade_section ? `Victim: ${details.victim_grade_section}` : null,
+      details?.oppressor_grade_section || details?.oppressor_name
+        ? `Oppressor: ${[details.oppressor_grade_section, details.oppressor_name].filter(Boolean).join(" · ")}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "—";
+  const settingValue = details?.setting ?? "—";
 
   // Table doesn't exist until supabase/migrations/0006_report_stage_progress.sql
   // has been run — hide the tracker rather than break the page.
@@ -117,29 +163,35 @@ export default async function AdminReportDetailPage({
     .maybeSingle<ReportStageProgress>();
   if (stageError) console.error("[admin report detail] stage progress query failed", stageError);
 
-  // is_handler doesn't exist until
-  // supabase/migrations/0010_handlers_and_teacher_tags.sql has been run —
-  // filtering on it fails the whole query. Fall back to every approved
-  // staff member rather than hiding the Tag Teacher list entirely.
-  let teachersResult = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("role", "staff")
-    .eq("is_handler", false)
-    .eq("status", "approved")
-    .order("full_name", { ascending: true })
-    .returns<Pick<Profile, "id" | "full_name">[]>();
-  if (teachersResult.error) {
-    console.error("[admin report detail] teachers query with is_handler failed, retrying without it", teachersResult.error);
-    teachersResult = await supabase
+  // Tagging is Admin-only (see the RLS policy on report_teacher_tags in
+  // supabase/migrations/0010_handlers_and_teacher_tags.sql) — skip the
+  // query entirely for a Handler viewer, who never sees the panel below.
+  let teachers: Pick<Profile, "id" | "full_name">[] | null = null;
+  if (isAdmin) {
+    // is_handler doesn't exist until
+    // supabase/migrations/0010_handlers_and_teacher_tags.sql has been run —
+    // filtering on it fails the whole query. Fall back to every approved
+    // staff member rather than hiding the Tag Teacher list entirely.
+    let teachersResult = await supabase
       .from("profiles")
       .select("id, full_name")
       .eq("role", "staff")
+      .eq("is_handler", false)
       .eq("status", "approved")
       .order("full_name", { ascending: true })
       .returns<Pick<Profile, "id" | "full_name">[]>();
+    if (teachersResult.error) {
+      console.error("[admin report detail] teachers query with is_handler failed, retrying without it", teachersResult.error);
+      teachersResult = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "staff")
+        .eq("status", "approved")
+        .order("full_name", { ascending: true })
+        .returns<Pick<Profile, "id" | "full_name">[]>();
+    }
+    teachers = teachersResult.data;
   }
-  const teachers = teachersResult.data;
 
   const authorIds = [...new Set((followups ?? []).map((f) => f.author_id))];
   const { data: authorProfiles } = authorIds.length
@@ -149,12 +201,16 @@ export default async function AdminReportDetailPage({
         .in("id", authorIds)
         .returns<Pick<Profile, "id" | "full_name" | "role">[]>()
     : { data: [] as Pick<Profile, "id" | "full_name" | "role">[] };
+  // A Handler is role='staff' underneath, not 'admin' — the anonymous
+  // reporter's name must still be masked for them exactly as it would be
+  // on the Staff report detail page, so this can't be hardcoded to "admin"
+  // now that this page isn't Admin-exclusive (see buildFollowupAuthorLabels).
   const authorLabels = buildFollowupAuthorLabels({
     followups: followups ?? [],
     authorProfiles: authorProfiles ?? [],
     currentUserId: profile.id,
     isAnonymous: report.is_anonymous,
-    viewerRole: "admin",
+    viewerRole: profile.role,
   });
 
   async function sendMessage(message: string) {
@@ -175,6 +231,16 @@ export default async function AdminReportDetailPage({
   async function tag(teacherId: string, note: string) {
     "use server";
     return tagTeacher(id, teacherId, note);
+  }
+
+  async function advanceStage() {
+    "use server";
+    return advanceReportStage(id, `/admin/reports/${id}`);
+  }
+
+  async function revertStage() {
+    "use server";
+    return revertReportStage(id, `/admin/reports/${id}`);
   }
 
   return (
@@ -208,12 +274,22 @@ export default async function AdminReportDetailPage({
           </span>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {report.is_anonymous && <RevealIdentity reveal={reveal} />}
+          {/* Identity disclosure stays Admin-only — it's the one exception
+              to "Handlers see practically the same view", since it's the
+              app's single most sensitive action against a student's
+              anonymity and is already a formally logged, reason-justified
+              flow (see revealIdentity() in app/admin/actions.ts). */}
+          {report.is_anonymous && isAdmin && <RevealIdentity reveal={reveal} />}
           <StatusSelect status={report.status} onChange={changeStatus} />
         </div>
       </div>
 
-      {stageProgress && (
+      {/* Admin has read-only oversight of the checklist (the cog icon);
+          Handlers are the ones who actually drive it (see
+          supabase/migrations/0010_handlers_and_teacher_tags.sql) — Handler
+          gets the interactive version here since /staff/reports/[id] is no
+          longer where they land for this. */}
+      {stageProgress && isAdmin && (
         <Card className="mb-6">
           <h2 className="mb-4 text-lg font-semibold">Case status</h2>
           <ReportStageTracker
@@ -223,6 +299,17 @@ export default async function AdminReportDetailPage({
             initialProgress={stageProgress}
           />
         </Card>
+      )}
+
+      {stageProgress && !isAdmin && (
+        <div className="mb-6">
+          <StaffStageChecklist
+            reportId={id}
+            progress={stageProgress}
+            advanceStage={advanceStage}
+            revertStage={revertStage}
+          />
+        </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -260,19 +347,63 @@ export default async function AdminReportDetailPage({
             </dl>
           </Card>
 
-          <TagTeacherPanel teachers={(teachers ?? []).map((t) => ({ id: t.id, fullName: t.full_name ?? "(no name on file)" }))} tagTeacher={tag} />
+          {isAdmin && (
+            <TagTeacherPanel
+              teachers={(teachers ?? []).map((t) => ({ id: t.id, fullName: t.full_name ?? "(no name on file)" }))}
+              tagTeacher={tag}
+            />
+          )}
 
           {assessment && (
             <Card>
               <h2 className="mb-3 text-lg font-semibold">AI assessment</h2>
-              <p className="text-sm text-[var(--color-text-muted)]">{assessment.staff_summary}</p>
-              {assessment.recommendation && (
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-                  {assessment.recommendation.split("\n").map((rec, i) => (
-                    <li key={i}>{rec}</li>
-                  ))}
-                </ul>
-              )}
+              <dl className="space-y-3 text-sm">
+                <Field label="Report content" value={report.description ?? "—"} />
+                <Field label="People involved" value={peopleInvolved} />
+                <Field label="Setting" value={settingValue} />
+                <div>
+                  <dt className="text-[var(--color-text-muted)]">Evidence</dt>
+                  <dd className="mt-0.5">
+                    {evidenceLinks.length === 0 ? (
+                      "—"
+                    ) : (
+                      <ul className="space-y-1">
+                        {evidenceLinks.map((e) => (
+                          <li key={e.id}>
+                            {e.url ? (
+                              <a
+                                href={e.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--color-brand)] hover:underline"
+                              >
+                                {EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}
+                              </a>
+                            ) : (
+                              <span>{EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}</span>
+                            )}
+                            <span className="text-[var(--color-text-muted)]">
+                              {" "}
+                              · {new Date(e.uploaded_at).toLocaleDateString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+                <p className="text-sm text-[var(--color-text-muted)]">{assessment.staff_summary}</p>
+                {assessment.recommendation && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+                    {assessment.recommendation.split("\n").map((rec, i) => (
+                      <li key={i}>{rec}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </Card>
           )}
         </div>

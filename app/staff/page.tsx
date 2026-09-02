@@ -1,9 +1,8 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { summarizeUnresolved } from "@/lib/ai/summary";
 import { StaffTeacherHome } from "@/components/staff-teacher-home";
-import { StaffHandlerHome } from "@/components/staff-handler-home";
-import { formatCaseId } from "@/lib/reports/case-id";
 import type { ReportFollowup, StaffReportsView } from "@/types/database";
 
 type ReportRow = Pick<
@@ -13,18 +12,19 @@ type ReportRow = Pick<
 
 export default async function StaffHomePage() {
   const profile = await requireProfile("staff");
+
+  // A Handler's home is /admin — they get practically the same view as
+  // Admin there (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+  // This page is Page A, for Teachers only.
+  if (profile.is_handler) redirect("/admin");
+
   const supabase = await createClient();
 
-  const [{ data: reports }, { data: school }] = await Promise.all([
-    supabase
-      .from("staff_reports_view")
-      .select("id, type, status, severity, is_anonymous, created_at")
-      .order("created_at", { ascending: false })
-      .returns<ReportRow[]>(),
-    profile.school_id
-      ? supabase.from("schools").select("name").eq("id", profile.school_id).maybeSingle<{ name: string }>()
-      : Promise.resolve({ data: null }),
-  ]);
+  const { data: reports } = await supabase
+    .from("staff_reports_view")
+    .select("id, type, status, severity, is_anonymous, created_at")
+    .order("created_at", { ascending: false })
+    .returns<ReportRow[]>();
 
   const reportIds = (reports ?? []).map((r) => r.id);
   const { data: followups } = reportIds.length
@@ -51,39 +51,17 @@ export default async function StaffHomePage() {
     unresolved: rows.filter((r) => r.status === "unresolved").length,
   };
 
+  const summary = await summarizeUnresolved(
+    rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      severity: r.severity,
+      createdAt: r.createdAt,
+      followupCount: r.followupCount,
+    })),
+  );
+
   const firstName = (profile.full_name ?? "there").split(" ")[0];
 
-  // Page A (Teacher) vs. Page B (Handler) — see
-  // supabase/migrations/0010_handlers_and_teacher_tags.sql.
-  if (!profile.is_handler) {
-    const summary = await summarizeUnresolved(
-      rows.map((r) => ({
-        id: r.id,
-        status: r.status,
-        severity: r.severity,
-        createdAt: r.createdAt,
-        followupCount: r.followupCount,
-      })),
-    );
-    return <StaffTeacherHome firstName={firstName} summary={summary} counts={counts} rows={rows} />;
-  }
-
-  const boardRows = rows.map((r) => ({
-    id: r.id,
-    caseId: formatCaseId(r.id, r.createdAt),
-    type: r.type,
-    status: r.status,
-    severity: r.severity,
-    isAnonymous: r.isAnonymous,
-    createdAt: r.createdAt,
-  }));
-
-  return (
-    <StaffHandlerHome
-      firstName={firstName}
-      schoolName={school?.name ?? "Your school"}
-      counts={counts}
-      rows={boardRows}
-    />
-  );
+  return <StaffTeacherHome firstName={firstName} summary={summary} counts={counts} rows={rows} />;
 }

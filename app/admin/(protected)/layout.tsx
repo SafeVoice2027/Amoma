@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/(auth)/login/actions";
 import { markUrgentNotificationsRead } from "@/app/admin/actions";
@@ -9,7 +9,7 @@ import { formatCaseId } from "@/lib/reports/case-id";
 import type { Profile, ReportTeacherTag } from "@/types/database";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const profile = await requireProfile("admin");
+  const profile = await requireAdminOrHandler();
   const supabase = await createClient();
 
   const urgentNotifications = await fetchNotifications(supabase, profile.id, { urgency: "high" });
@@ -61,6 +61,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <div className="control-shell flex flex-1 bg-[var(--color-background)]">
       <AdminSidebar
         fullName={profile.full_name ?? "Admin"}
+        isAdmin={profile.role === "admin"}
         onSignOut={logout}
         urgentItems={urgentItems}
         unreadUrgentCount={unreadUrgentCount}

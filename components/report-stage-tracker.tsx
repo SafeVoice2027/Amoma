@@ -5,9 +5,10 @@ import Link from "next/link";
 import { FileSearch, MessageCircleMore, Calendar, Gavel, Cog, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { STAGE_ORDER, STAGE_TITLES, nextUpdateEstimate } from "@/lib/reports/stage-labels";
-import { MeetingResponseChecklist } from "@/components/meeting-response-checklist";
 import type { ReportStage, ReportStageProgress } from "@/types/database";
 
+// Case Filed -> Scheduling -> Investigation & Counseling -> Case Closed.
+// See supabase/migrations/0012_reorder_stage_flow.sql.
 const STAGES: { id: ReportStage; icon: LucideIcon; title: string; subheading: string }[] = [
   {
     id: "case_filed",
@@ -17,18 +18,18 @@ const STAGES: { id: ReportStage; icon: LucideIcon; title: string; subheading: st
       "Your case is already filed. Within 24 hours of receiving this report, the staff/teacher will assess the details before forwarding it to the counselor. Note: If the staff/teacher can handle the matter, there would be no need to proceed to advising a counselor.",
   },
   {
-    id: "investigation",
-    icon: MessageCircleMore,
-    title: STAGE_TITLES.investigation,
-    subheading:
-      "A formal investigation is underway based on the information you have given. This process will involve collecting evidence and interviewing witnesses (if there are any). This procedure will take a maximum of 3 school days.",
-  },
-  {
     id: "meeting",
     icon: Calendar,
     title: STAGE_TITLES.meeting,
     subheading:
-      "The staff will contact you soon and ask if you would like to partake in the meeting or not. There will be a meeting on the following tentative day.",
+      "The team handling your case is planning next steps and assigning who will follow up with you. This takes place within 48 hours.",
+  },
+  {
+    id: "investigation",
+    icon: MessageCircleMore,
+    title: STAGE_TITLES.investigation,
+    subheading:
+      "A formal investigation is underway based on the information you have given, alongside counseling and support for anyone affected. This process will involve collecting evidence and interviewing witnesses (if there are any), and will take a maximum of 3 school days.",
   },
   {
     id: "case_closed",
@@ -192,45 +193,12 @@ export function ReportStageTracker({
 
       <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-sm">
         <p className="font-medium">{activeStage.title}</p>
-        <p className="mt-1 text-[var(--color-text-muted)]">
-          {activeStage.subheading}
-          {activeStage.id === "meeting" && progress.meeting_tentative_date && (
-            <>
-              {" "}
-              Tentative date:{" "}
-              <span className="font-medium text-[var(--color-text)]">
-                {new Date(progress.meeting_tentative_date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-              .
-            </>
-          )}
-        </p>
+        <p className="mt-1 text-[var(--color-text-muted)]">{activeStage.subheading}</p>
         {estimate && (
           <p className="mt-2 text-[var(--color-text-muted)]">
             Next update estimate:{" "}
             <span className="font-medium text-[var(--color-text)]">
               {estimate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-            </span>
-          </p>
-        )}
-
-        {activeStage.id === "meeting" && role === "student" && (
-          <MeetingResponseChecklist reportId={reportId} initialResponse={progress.student_meeting_response} />
-        )}
-
-        {activeStage.id === "meeting" && role === "admin" && (
-          <p className="mt-2 text-[var(--color-text-muted)]">
-            Student&apos;s response:{" "}
-            <span className="font-medium text-[var(--color-text)]">
-              {progress.student_meeting_response === "attending"
-                ? "Willing to attend"
-                : progress.student_meeting_response === "not_attending"
-                  ? "Prefers not to attend"
-                  : "Not answered yet"}
             </span>
           </p>
         )}

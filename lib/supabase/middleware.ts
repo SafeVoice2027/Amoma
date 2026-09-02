@@ -13,6 +13,11 @@ const ROLE_HOME: Record<UserRole, string> = {
 // session, or no one could ever reach them.
 const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/signup"];
 
+// Handlers get "practically the same view" as Admin (see
+// supabase/migrations/0010_handlers_and_teacher_tags.sql) — everything
+// under /admin is shared, except these two, which stay Admin-only.
+const ADMIN_ONLY_PATHS = ["/admin/accounts", "/admin/bug-reports"];
+
 function roleForPath(pathname: string): UserRole | null {
   if (pathname.startsWith("/student")) return "student";
   if (pathname.startsWith("/staff")) return "staff";
@@ -87,13 +92,20 @@ export async function updateSession(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, status")
+      .select("role, status, is_handler")
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.role !== requiredRole) {
+    const isHandler = profile?.role === "staff" && !!profile.is_handler;
+    // A Handler is allowed onto /admin itself (same role check every other
+    // path uses) EXCEPT the two Admin-only sub-paths.
+    const roleMatches =
+      profile?.role === requiredRole ||
+      (requiredRole === "admin" && isHandler && !ADMIN_ONLY_PATHS.includes(pathname));
+
+    if (!profile || !roleMatches) {
       const url = request.nextUrl.clone();
-      url.pathname = profile ? ROLE_HOME[profile.role as UserRole] : "/login";
+      url.pathname = profile ? (isHandler ? "/admin" : ROLE_HOME[profile.role as UserRole]) : "/login";
       return NextResponse.redirect(url);
     }
 

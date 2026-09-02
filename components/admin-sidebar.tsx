@@ -8,13 +8,15 @@ import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
 import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
 
+// Bug reports and Accounts stay Admin-only — Handlers get everything else
+// on this nav (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
 const NAV_ITEMS = [
-  { href: "/admin", label: "Case overview", icon: LayoutGrid },
-  { href: "/admin/reports", label: "All reports", icon: FileText },
-  { href: "/admin/bug-reports", label: "Bug reports", icon: Bug },
-  { href: "/admin/followups", label: "Followups", icon: MessageSquare },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/accounts", label: "Accounts", icon: Users },
+  { href: "/admin", label: "Case overview", icon: LayoutGrid, adminOnly: false },
+  { href: "/admin/reports", label: "All reports", icon: FileText, adminOnly: false },
+  { href: "/admin/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true },
+  { href: "/admin/followups", label: "Followups", icon: MessageSquare, adminOnly: false },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, adminOnly: false },
+  { href: "/admin/accounts", label: "Accounts", icon: Users, adminOnly: true },
 ];
 
 function NavIcon({
@@ -46,6 +48,7 @@ function NavIcon({
 
 export function AdminSidebar({
   fullName,
+  isAdmin,
   onSignOut,
   urgentItems,
   unreadUrgentCount,
@@ -53,6 +56,7 @@ export function AdminSidebar({
   tagItems,
 }: {
   fullName: string;
+  isAdmin: boolean;
   onSignOut: () => Promise<void>;
   urgentItems: UrgentNotificationItem[];
   unreadUrgentCount: number;
@@ -72,7 +76,7 @@ export function AdminSidebar({
         markAllRead={markUrgentRead}
         panelPlacement="right"
       />
-      {NAV_ITEMS.map((item) => (
+      {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
         <NavIcon
           key={item.href}
           href={item.href}
@@ -105,6 +109,7 @@ export function AdminSidebar({
                   /admin/settings page, replaced by this popover. */}
               <AccountSettingsPanel
                 name={fullName}
+                roleLabel={isAdmin ? "Admin" : "Handler"}
                 onSignOut={onSignOut}
                 onNavigate={() => setSettingsOpen(false)}
               />

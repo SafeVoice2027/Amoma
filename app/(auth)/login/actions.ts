@@ -61,7 +61,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, status")
+    .select("role, status, is_handler")
     .eq("id", data.user.id)
     .single();
 
@@ -74,7 +74,10 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     redirect("/pending-approval");
   }
 
-  redirect(next && next.startsWith("/") ? next : ROLE_HOME[role]);
+  // A Handler's home is /admin, not /staff — they get practically the same
+  // view as Admin (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+  const roleHome = profile.role === "staff" && profile.is_handler ? "/admin" : ROLE_HOME[role];
+  redirect(next && next.startsWith("/") ? next : roleHome);
 }
 
 export async function logout() {

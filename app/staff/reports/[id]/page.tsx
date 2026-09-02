@@ -1,12 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
 import { StatusSelect } from "@/components/status-select";
-import { StaffStageChecklist } from "@/components/staff-stage-checklist";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
-import { addFollowup, advanceReportStage, revertReportStage, updateReportStatus } from "@/app/staff/actions";
+import { addFollowup, updateReportStatus } from "@/app/staff/actions";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
 import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
 import type {
@@ -14,10 +13,18 @@ import type {
   Profile,
   ReportBullyDetails,
   ReportConflictDetails,
+  ReportEvidence,
   ReportFollowup,
   ReportStageProgress,
   StaffReportsView,
 } from "@/types/database";
+
+const EVIDENCE_TYPE_LABELS: Record<string, string> = {
+  video: "Video",
+  screen_recording: "Screen recording",
+  screenshot: "Screenshot",
+  photo: "Photo",
+};
 
 export default async function StaffReportDetailPage({
   params,
@@ -26,6 +33,11 @@ export default async function StaffReportDetailPage({
 }) {
   const { id } = await params;
   const profile = await requireProfile("staff");
+  // Handlers live on /admin now (see
+  // supabase/migrations/0010_handlers_and_teacher_tags.sql) — nothing in
+  // the app links here for them anymore, but redirect defensively in case
+  // of an old bookmark.
+  if (profile.is_handler) redirect(`/admin/reports/${id}`);
   const supabase = await createClient();
 
   const { data: report } = await supabase
@@ -36,7 +48,7 @@ export default async function StaffReportDetailPage({
 
   if (!report) notFound();
 
-  const [{ data: bully }, { data: conflict }, { data: followups }, { data: assessments }, reporterName] =
+  const [{ data: bully }, { data: conflict }, { data: followups }, { data: assessments }, { data: evidence }, reporterName] =
     await Promise.all([
       supabase.from("report_bully_details").select("*").eq("report_id", id).maybeSingle<ReportBullyDetails>(),
       supabase.from("report_conflict_details").select("*").eq("report_id", id).maybeSingle<ReportConflictDetails>(),
@@ -53,6 +65,12 @@ export default async function StaffReportDetailPage({
         .order("created_at", { ascending: false })
         .limit(1)
         .returns<AiAssessment[]>(),
+      supabase
+        .from("report_evidence")
+        .select("*")
+        .eq("report_id", id)
+        .order("uploaded_at", { ascending: true })
+        .returns<ReportEvidence[]>(),
       report.visible_reporter_id
         ? supabase
             .from("profiles")
@@ -64,6 +82,29 @@ export default async function StaffReportDetailPage({
     ]);
 
   const assessment = assessments?.[0] ?? null;
+
+  // The bucket is private (RLS-gated, not public) — a signed URL is the
+  // only way to let staff actually open a file from here.
+  const evidenceLinks = await Promise.all(
+    (evidence ?? []).map(async (e) => {
+      const { data: signed } = await supabase.storage.from("report_evidence").createSignedUrl(e.storage_path, 3600);
+      return { ...e, url: signed?.signedUrl ?? null };
+    }),
+  );
+
+  // Both bully and conflict details carry the same victim/oppressor/setting
+  // shape — a report is only ever one type, so exactly one of these is set.
+  const details = bully ?? conflict;
+  const peopleInvolved =
+    [
+      details?.victim_grade_section ? `Victim: ${details.victim_grade_section}` : null,
+      details?.oppressor_grade_section || details?.oppressor_name
+        ? `Oppressor: ${[details.oppressor_grade_section, details.oppressor_name].filter(Boolean).join(" · ")}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "—";
+  const settingValue = details?.setting ?? "—";
 
   // Table doesn't exist until supabase/migrations/0006_report_stage_progress.sql
   // has been run — hide the checklist rather than break the page.
@@ -98,16 +139,6 @@ export default async function StaffReportDetailPage({
   async function changeStatus(status: Parameters<typeof updateReportStatus>[1]) {
     "use server";
     await updateReportStatus(id, status);
-  }
-
-  async function advanceStage(meetingDate?: string) {
-    "use server";
-    return advanceReportStage(id, meetingDate);
-  }
-
-  async function revertStage() {
-    "use server";
-    return revertReportStage(id);
   }
 
   return (
@@ -170,30 +201,60 @@ export default async function StaffReportDetailPage({
           {assessment && (
             <Card>
               <h2 className="mb-3 text-lg font-semibold">AI assessment</h2>
-              <p className="text-sm text-[var(--color-text-muted)]">{assessment.staff_summary}</p>
-              {assessment.recommendation && (
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-                  {assessment.recommendation.split("\n").map((rec, i) => (
-                    <li key={i}>{rec}</li>
-                  ))}
-                </ul>
-              )}
+              <dl className="space-y-3 text-sm">
+                <Field label="Report content" value={report.description ?? "—"} />
+                <Field label="People involved" value={peopleInvolved} />
+                <Field label="Setting" value={settingValue} />
+                <div>
+                  <dt className="text-[var(--color-text-muted)]">Evidence</dt>
+                  <dd className="mt-0.5">
+                    {evidenceLinks.length === 0 ? (
+                      "—"
+                    ) : (
+                      <ul className="space-y-1">
+                        {evidenceLinks.map((e) => (
+                          <li key={e.id}>
+                            {e.url ? (
+                              <a
+                                href={e.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--color-brand)] hover:underline"
+                              >
+                                {EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}
+                              </a>
+                            ) : (
+                              <span>{EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}</span>
+                            )}
+                            <span className="text-[var(--color-text-muted)]">
+                              {" "}
+                              · {new Date(e.uploaded_at).toLocaleDateString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+                <p className="text-sm text-[var(--color-text-muted)]">{assessment.staff_summary}</p>
+                {assessment.recommendation && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+                    {assessment.recommendation.split("\n").map((rec, i) => (
+                      <li key={i}>{rec}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </Card>
           )}
 
-          {stageProgress && profile.is_handler && (
-            <StaffStageChecklist
-              reportId={id}
-              progress={stageProgress}
-              advanceStage={advanceStage}
-              revertStage={revertStage}
-            />
-          )}
-
           {/* Teachers can see case progress but not act on it — only
-              Handlers drive the checklist (see
+              Handlers drive the checklist, on /admin/reports/[id] now (see
               supabase/migrations/0010_handlers_and_teacher_tags.sql). */}
-          {stageProgress && !profile.is_handler && (
+          {stageProgress && (
             <Card>
               <h2 className="mb-4 text-lg font-semibold">Case status</h2>
               <ReportStageTracker

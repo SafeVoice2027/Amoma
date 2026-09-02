@@ -53,11 +53,12 @@ export interface SeverityInput {
 
 export interface SeverityResult {
   severity: SeverityLevel;
-  // A staff-facing summary: what happened (per the report) and why it was
-  // classified at this Level — this is what renders in the "AI assessment"
-  // card on the Staff/Admin report detail pages, so it must read as
-  // guidance FOR the person handling the case, not as reassurance directed
-  // at the student who filed it.
+  // Why it was classified at this Level — the report content, people
+  // involved, setting, and evidence are shown as their own fields on the
+  // "AI assessment" card (see the report detail pages), so this only needs
+  // to cover the classification reasoning, not re-summarize the incident.
+  // Still staff-facing: guidance FOR the person handling the case, not
+  // reassurance directed at the student who filed it.
   rationale: string;
   recommendations: string[];
   modelVersion: string;
@@ -88,7 +89,7 @@ async function classifyWithClaude(input: SeverityInput): Promise<SeverityResult>
   const message = await client.messages.create({
     model,
     max_tokens: 500,
-    system: `You triage school bullying reports for a staff member who is about to open the case for the first time — you never determine guilt or discipline. Classify strictly against the three Levels of Disciplinary Intervention defined in DepEd Order No. 006, s. 2026, Section 21:\n${DEPED_SEVERITY_GUIDE}\nMap your classification to severity values: First Level -> "minor"; Second Level -> "serious"; Third Level -> "critical". Never use "less_serious" — it is not part of this standard. If the report describes acts spanning more than one level, classify at the HIGHEST level clearly supported by the facts stated. Physical contact (punching, pinching, fighting) is First Level UNLESS the report states it caused an injury, in which case it is at least Second Level ("slight" injury) or Third Level (victim incapacitated or needs 10+ days of medical care) depending on severity of the injury described — if the report doesn't say whether an injury occurred, do not assume one occurred. The student also tags which type(s) of bullying this was (Social/Cyber/Physical/Verbal) — treat that as a structured hint about where to look in the description (e.g. a "Cyber" tag means check for online sharing/uploading acts, which can reach Third Level), never as the sole basis for a Level by itself. Students may write in English, Filipino/Tagalog, Bisaya/Cebuano, or a mix — read and classify the report correctly regardless of language; write your rationale and recommendations in English for staff-facing consistency. Respond ONLY with JSON: {"severity": "minor"|"serious"|"critical", "rationale": string (a staff-facing summary: 1-2 sentences recapping WHAT HAPPENED per the report — using the victim/oppressor/setting details given, not just the free-text description — followed by which Level of Disciplinary Intervention applies and why, citing only facts present in the report), "recommendations": string[] (2-4 short, concrete next steps for the STAFF MEMBER handling this case — e.g. who to interview, whether to loop in a counselor or Prefect of Discipline, what evidence to verify — never advice addressed to the student)}.`,
+    system: `You triage school bullying reports for a staff member who is about to open the case for the first time — you never determine guilt or discipline. Classify strictly against the three Levels of Disciplinary Intervention defined in DepEd Order No. 006, s. 2026, Section 21:\n${DEPED_SEVERITY_GUIDE}\nMap your classification to severity values: First Level -> "minor"; Second Level -> "serious"; Third Level -> "critical". Never use "less_serious" — it is not part of this standard. If the report describes acts spanning more than one level, classify at the HIGHEST level clearly supported by the facts stated. Physical contact (punching, pinching, fighting) is First Level UNLESS the report states it caused an injury, in which case it is at least Second Level ("slight" injury) or Third Level (victim incapacitated or needs 10+ days of medical care) depending on severity of the injury described — if the report doesn't say whether an injury occurred, do not assume one occurred. The student also tags which type(s) of bullying this was (Social/Cyber/Physical/Verbal) — treat that as a structured hint about where to look in the description (e.g. a "Cyber" tag means check for online sharing/uploading acts, which can reach Third Level), never as the sole basis for a Level by itself. Students may write in English, Filipino/Tagalog, Bisaya/Cebuano, or a mix — read and classify the report correctly regardless of language; write your rationale and recommendations in English for staff-facing consistency. The report content, people involved, setting, and evidence are already shown to staff as their own fields elsewhere on the page — your rationale should NOT restate them, only explain the classification. Respond ONLY with JSON: {"severity": "minor"|"serious"|"critical", "rationale": string (1-2 sentences: which Level of Disciplinary Intervention applies and why, citing only facts present in the report), "recommendations": string[] (2-4 short, concrete next steps for the STAFF MEMBER handling this case — e.g. who to interview, whether to loop in a counselor or Prefect of Discipline, what evidence to verify — never advice addressed to the student)}.`,
     messages: [
       {
         role: "user",
@@ -169,24 +170,6 @@ function hasSignal(text: string, keywords: string[]): boolean {
   return false;
 }
 
-// Can't reason about the report holistically the way classifyWithClaude
-// does, so this just recaps the structured fields plus a truncated
-// description — enough for a staff member skimming the case list to know
-// who/where without opening "Report details" separately.
-function describeIncident(input: SeverityInput): string {
-  const who: string[] = [];
-  if (input.victimGradeSection) who.push(`victim ${input.victimGradeSection}`);
-  const oppressor = [input.oppressorGradeSection, input.oppressorName].filter(Boolean).join(" · ");
-  if (oppressor) who.push(`oppressor ${oppressor}`);
-  if (input.setting) who.push(`at ${input.setting}`);
-  const context = who.length ? ` (${who.join(", ")})` : "";
-
-  const truncated =
-    input.description.length > 160 ? `${input.description.slice(0, 157).trimEnd()}…` : input.description;
-
-  return `Reported: "${truncated}"${context}.`;
-}
-
 const STAFF_NEXT_STEPS: Record<SeverityLevel, string[]> = {
   critical: [
     "Treat as highest priority — confirm the student's immediate safety first.",
@@ -225,13 +208,13 @@ function heuristicClassify(input: SeverityInput): SeverityResult {
     ? ` Student-tagged type(s): ${input.bullyingTypes.map((t) => BULLYING_TYPE_LABELS[t]).join(", ")}.`
     : "";
 
-  const classification = input.inImmediateDanger
+  const rationale = input.inImmediateDanger
     ? `Marked critical (${levelName}) because the student flagged immediate danger.${typesNote}`
     : `Marked ${severity} (${levelName} of Disciplinary Intervention per DO_s2026_006 Section 21) based on keywords in the description.${typesNote}`;
 
   return {
     severity,
-    rationale: `${describeIncident(input)} ${classification}`,
+    rationale,
     recommendations: [...STAFF_NEXT_STEPS[severity], DISCLAIMER],
     modelVersion: "heuristic-fallback",
   };

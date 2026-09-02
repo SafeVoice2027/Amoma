@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader } from "@/components/ui";
 import type { Report, ReportCategory, ReportStatus, SeverityLevel } from "@/types/database";
 
@@ -138,7 +138,7 @@ function computeWeeklyTrend(reports: ReportRow[]) {
 }
 
 export default async function AdminAnalyticsPage() {
-  await requireProfile("admin");
+  await requireAdminOrHandler();
   const supabase = await createClient();
 
   const reports = await fetchReports(supabase);

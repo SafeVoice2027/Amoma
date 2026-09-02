@@ -1,11 +1,15 @@
 import type { ReportStage, ReportStageProgress } from "@/types/database";
 
-export const STAGE_ORDER: ReportStage[] = ["case_filed", "investigation", "meeting", "case_closed"];
+// Case Assessment -> Scheduling -> Investigation & Counseling -> Case Closed.
+// See supabase/migrations/0012_reorder_stage_flow.sql — the enum member
+// names ('case_filed', 'meeting', 'investigation') are unchanged, only
+// their order and display titles are.
+export const STAGE_ORDER: ReportStage[] = ["case_filed", "meeting", "investigation", "case_closed"];
 
 export const STAGE_TITLES: Record<ReportStage, string> = {
-  case_filed: "Case Filed",
-  investigation: "Investigation",
-  meeting: "Meeting",
+  case_filed: "Case Assessment",
+  meeting: "Scheduling",
+  investigation: "Investigation & Counseling",
   case_closed: "Case Closed",
 };
 
@@ -31,18 +35,24 @@ function addSchoolDays(base: Date, days: number): Date {
   return result;
 }
 
-// Matches the SLAs shown to staff in staff-stage-checklist.tsx (24h / 3
-// school days / 48h). Meeting has no fixed SLA once staff sets a tentative
-// date, and case_closed is terminal — neither gets an estimate.
+// Matches the SLAs shown to staff in staff-stage-checklist.tsx (24h / 48h /
+// 3 school days). case_closed is terminal and gets no estimate.
 export function nextUpdateEstimate(
   reportCreatedAt: string,
-  progress: Pick<ReportStageProgress, "current_stage" | "case_filed_completed_at">,
+  progress: Pick<
+    ReportStageProgress,
+    "current_stage" | "case_filed_completed_at" | "meeting_completed_at"
+  >,
 ): Date | null {
   let deadline: Date;
   if (progress.current_stage === "case_filed") {
     deadline = new Date(new Date(reportCreatedAt).getTime() + 24 * 60 * 60 * 1000);
+  } else if (progress.current_stage === "meeting") {
+    deadline = new Date(
+      new Date(progress.case_filed_completed_at ?? reportCreatedAt).getTime() + 48 * 60 * 60 * 1000,
+    );
   } else if (progress.current_stage === "investigation") {
-    deadline = addSchoolDays(new Date(progress.case_filed_completed_at ?? reportCreatedAt), 3);
+    deadline = addSchoolDays(new Date(progress.meeting_completed_at ?? reportCreatedAt), 3);
   } else {
     return null;
   }
