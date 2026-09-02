@@ -12,9 +12,8 @@ export function AuthShell({ children, footerNote }: { children: ReactNode; foote
         <div className="mb-2 flex flex-col items-center text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/report-hero.png" alt="" className="h-16 w-16 rounded-2xl shadow-sm" />
-          <span className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-primary-800)]">
-            Amoma
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/amoma-wordmark.png" alt="Amoma" className="mt-1 h-6 w-auto" />
           <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">Your voice. Safe and heard.</p>
         </div>
 
