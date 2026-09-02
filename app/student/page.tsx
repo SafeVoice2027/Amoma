@@ -147,9 +147,8 @@ export default async function StudentHomePage() {
       <div className="mb-8 flex flex-col items-center text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/shield-heart-icon.jpg" alt="" className="mb-2 h-14 w-auto rounded-xl shadow-sm" />
-        <span className="text-xl font-semibold tracking-tight text-[var(--color-primary-800)]">
-          Amoma
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/amoma-wordmark.png" alt="Amoma" className="h-6 w-auto" />
       </div>
 
       <h1 className="text-center text-lg font-semibold">What would you like to report?</h1>
