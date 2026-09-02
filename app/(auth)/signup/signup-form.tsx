@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { User, Mail, Lock } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button, Card } from "@/components/ui";
 import { signup, type SignupState } from "./actions";
 import type { UserRole } from "@/types/database";
@@ -16,16 +16,19 @@ const initialState: SignupState = { error: null, success: false };
 
 export function SignupForm() {
   const [role, setRole] = useState<UserRole>("student");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [state, formAction, pending] = useActionState(signup, initialState);
   const tab = ROLE_TABS.find((t) => t.role === role)!;
 
   if (state.success) {
     return (
       <Card>
-        <h2 className="text-xl font-semibold">Request submitted</h2>
+        <h2 className="text-xl font-semibold">{state.autoApproved ? "You're all set" : "Request submitted"}</h2>
         <p className="mt-2 text-[var(--color-text-muted)]">
-          A school admin needs to approve your account before you can log in. Once approved, log in
-          with {role === "student" ? "your LRN" : "your email"} and the password you just chose.
+          {state.autoApproved
+            ? `Your account is ready to go — log in with ${role === "student" ? "your LRN" : "your email"} and the password you just chose.`
+            : `A school admin needs to approve your account before you can log in. Once approved, log in with ${role === "student" ? "your LRN" : "your email"} and the password you just chose.`}
         </p>
 
         <Link href="/login">
@@ -125,12 +128,20 @@ export function SignupForm() {
             <input
               id="password"
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-10 text-base outline-none focus:border-[var(--color-brand)]"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
         </div>
 
@@ -145,12 +156,20 @@ export function SignupForm() {
             <input
               id="confirm_password"
               name="confirm_password"
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-10 text-base outline-none focus:border-[var(--color-brand)]"
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
         </div>
 

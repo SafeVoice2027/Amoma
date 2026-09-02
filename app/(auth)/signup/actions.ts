@@ -3,7 +3,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import type { UserRole } from "@/types/database";
 
-export type SignupState = { error: string | null; success: boolean };
+export type SignupState = { error: string | null; success: boolean; autoApproved?: boolean };
 
 function emailForSignup(role: UserRole, identifier: string) {
   if (role === "student") return `${identifier}@lrn.safevoice.internal`;
@@ -71,6 +71,19 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
 
   const email = emailForSignup(role, identifier);
 
+  // A student whose LRN is on the school's known roster (see
+  // supabase/migrations/0011_student_roster.sql) skips the pending queue —
+  // Admin only needs to review signups the roster doesn't recognize.
+  let autoApproved = false;
+  if (role === "student") {
+    const { data: rosterEntry } = await service
+      .from("student_roster")
+      .select("lrn")
+      .eq("lrn", identifier)
+      .maybeSingle();
+    autoApproved = !!rosterEntry;
+  }
+
   const { data: created, error: authError } = await service.auth.admin.createUser({
     email,
     password,
@@ -91,7 +104,8 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     lrn: role === "student" ? identifier : null,
     deped_email: role !== "student" ? identifier : null,
     school_id: school.id,
-    status: "pending",
+    status: autoApproved ? "approved" : "pending",
+    approved_at: autoApproved ? new Date().toISOString() : null,
   });
 
   if (profileError) {
@@ -100,5 +114,5 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     return { error: message, success: false };
   }
 
-  return { error: null, success: true };
+  return { error: null, success: true, autoApproved };
 }
