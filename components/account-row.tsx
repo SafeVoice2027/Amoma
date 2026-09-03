@@ -97,7 +97,8 @@ export function AccountRow({
             {profile.full_name ?? (profile.role === "student" ? "Anonymous student" : "(no name on file)")}
           </p>
           <p className="text-sm text-[var(--color-text-muted)]">
-            {profile.role === "student" ? "Student" : "Staff"} · {profile.lrn ?? profile.deped_email}
+            {profile.role === "student" ? "Student" : "Staff"} ·{" "}
+            {profile.lrn ?? profile.deped_email ?? profile.employee_number}
           </p>
         </div>
         <Button

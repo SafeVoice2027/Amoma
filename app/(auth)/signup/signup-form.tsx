@@ -9,7 +9,13 @@ import type { UserRole } from "@/types/database";
 
 const ROLE_TABS: { role: UserRole; label: string; idLabel: string; idType: string; idPlaceholder: string }[] = [
   { role: "student", label: "Student", idLabel: "LRN", idType: "text", idPlaceholder: "123456789012" },
-  { role: "staff", label: "Staff", idLabel: "DepEd email", idType: "email", idPlaceholder: "you@deped.gov.ph" },
+  {
+    role: "staff",
+    label: "Staff",
+    idLabel: "DepEd email or Employee Number",
+    idType: "text",
+    idPlaceholder: "you@deped.gov.ph or Employee Number",
+  },
 ];
 
 const initialState: SignupState = { error: null, success: false };
@@ -27,8 +33,8 @@ export function SignupForm() {
         <h2 className="text-xl font-semibold">{state.autoApproved ? "You're all set" : "Request submitted"}</h2>
         <p className="mt-2 text-[var(--color-text-muted)]">
           {state.autoApproved
-            ? `Your account is ready to go — log in with ${role === "student" ? "your LRN" : "your email"} and the password you just chose.`
-            : `A school admin needs to approve your account before you can log in. Once approved, log in with ${role === "student" ? "your LRN" : "your email"} and the password you just chose.`}
+            ? `Your account is ready to go — log in with ${role === "student" ? "your LRN" : "what you just entered"} and the password you just chose.`
+            : `A school admin needs to approve your account before you can log in. Once approved, log in with ${role === "student" ? "your LRN" : "what you just entered"} and the password you just chose.`}
         </p>
 
         <Link href="/login">

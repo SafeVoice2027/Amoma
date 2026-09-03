@@ -113,12 +113,14 @@ export default async function AdminHomePage() {
     isAdmin
       ? supabase
           .from("profiles")
-          .select("id, full_name, role, lrn, deped_email, created_at")
+          .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
           .eq("status", "pending")
           .in("role", ["staff", "student", "admin"] satisfies UserRole[])
           .order("created_at", { ascending: true })
-          .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[]>()
-      : Promise.resolve({ data: [] as Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "created_at">[] }),
+          .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[]>()
+      : Promise.resolve({
+          data: [] as Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[],
+        }),
   ]);
 
   const allReports = reportsResult;

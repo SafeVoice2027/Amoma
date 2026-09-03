@@ -12,6 +12,7 @@ interface PendingProfile {
   role: UserRole;
   lrn: string | null;
   deped_email: string | null;
+  employee_number: string | null;
   created_at: string;
 }
 
@@ -33,7 +34,7 @@ export function ApprovalRow({
           {profile.full_name ?? (profile.role === "student" ? "Anonymous student" : "(no name on file)")}
         </p>
         <p className="text-sm text-[var(--color-text-muted)]">
-          {ROLE_LABELS[profile.role]} · {profile.lrn ?? profile.deped_email} · requested{" "}
+          {ROLE_LABELS[profile.role]} · {profile.lrn ?? profile.deped_email ?? profile.employee_number} · requested{" "}
           {new Date(profile.created_at).toLocaleDateString()}
         </p>
       </div>

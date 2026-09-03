@@ -34,7 +34,7 @@ const ROLE_TABS: {
     role: "staff",
     label: "Staff",
     heading: "Teacher / Counselor Log In",
-    subtitle: "Handlers log in with their DepEd email; Teachers use their Employee Number. Accounts require admin approval.",
+    subtitle: "Log in with your DepEd email or Employee Number. Accounts require admin approval.",
     idLabel: "Staff Email or Employee Number",
     idType: "text",
     idPlaceholder: "you@deped.gov.ph or Employee Number",

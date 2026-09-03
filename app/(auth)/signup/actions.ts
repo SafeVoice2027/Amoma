@@ -7,6 +7,10 @@ export type SignupState = { error: string | null; success: boolean; autoApproved
 
 function emailForSignup(role: UserRole, identifier: string) {
   if (role === "student") return `${identifier}@lrn.safevoice.internal`;
+  // A Handler signing up via Employee Number (see
+  // supabase/migrations/0013_staff_roster.sql) has no DepEd email — same
+  // synthetic-address pattern as the student LRN case above.
+  if (role === "staff" && !identifier.includes("@")) return `${identifier}@employee.safevoice.internal`;
   return identifier;
 }
 
@@ -44,8 +48,15 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   if (role === "student" && !/^\d{6,}$/.test(identifier)) {
     return { error: "Please enter a valid LRN (numbers only).", success: false };
   }
-  if (role !== "student" && !identifier.includes("@")) {
+  // Staff can sign up with either a DepEd email (Teachers, Handlers) or an
+  // Employee Number (Handlers only — see supabase/migrations/0013_staff_roster.sql).
+  // Admin has no Employee Number path and still requires a real email.
+  const isEmployeeNumberSignup = role === "staff" && !identifier.includes("@");
+  if (role === "admin" && !identifier.includes("@")) {
     return { error: "Please enter a valid DepEd email address.", success: false };
+  }
+  if (isEmployeeNumberSignup && identifier.length < 4) {
+    return { error: "Please enter a valid DepEd email address or Employee Number.", success: false };
   }
 
   const service = createServiceClient();
@@ -72,9 +83,12 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const email = emailForSignup(role, identifier);
 
   // A student whose LRN is on the school's known roster (see
-  // supabase/migrations/0011_student_roster.sql) skips the pending queue —
-  // Admin only needs to review signups the roster doesn't recognize.
+  // supabase/migrations/0011_student_roster.sql), or a staff signup whose
+  // Employee Number is on the staff roster (see
+  // supabase/migrations/0013_staff_roster.sql), skips the pending queue —
+  // Admin only needs to review signups neither roster recognizes.
   let autoApproved = false;
+  let isHandler = false;
   if (role === "student") {
     const { data: rosterEntry } = await service
       .from("student_roster")
@@ -82,6 +96,18 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
       .eq("lrn", identifier)
       .maybeSingle();
     autoApproved = !!rosterEntry;
+  } else if (isEmployeeNumberSignup) {
+    const { data: rosterEntry, error: rosterError } = await service
+      .from("staff_roster")
+      .select("employee_number")
+      .eq("employee_number", identifier)
+      .maybeSingle();
+    // Table doesn't exist until supabase/migrations/0013_staff_roster.sql
+    // has been run — fall through to the normal pending queue rather than
+    // failing the signup outright.
+    if (rosterError) console.error("[signup] staff_roster query failed", rosterError);
+    autoApproved = !!rosterEntry;
+    isHandler = autoApproved;
   }
 
   const { data: created, error: authError } = await service.auth.admin.createUser({
@@ -102,7 +128,9 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     role,
     full_name: role === "student" ? null : fullName,
     lrn: role === "student" ? identifier : null,
-    deped_email: role !== "student" ? identifier : null,
+    deped_email: role !== "student" && !isEmployeeNumberSignup ? identifier : null,
+    employee_number: isEmployeeNumberSignup ? identifier : null,
+    is_handler: isHandler,
     school_id: school.id,
     status: autoApproved ? "approved" : "pending",
     approved_at: autoApproved ? new Date().toISOString() : null,
