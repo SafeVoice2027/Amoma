@@ -46,6 +46,11 @@ async function uploadEvidence(
 // Critical AND Serious reports trigger this (UrgentNotificationBell plays a
 // different alarm tone for each, based on the report's own severity) —
 // Minor stays silent so the alarm doesn't lose meaning from over-firing.
+// Handlers and Admin/Developer only — a plain Teacher has no visibility
+// into a report until a Handler tags them into it (see
+// supabase/migrations/0016_restrict_teacher_report_visibility.sql), so
+// alerting them here would just be a phantom alarm with nothing to show
+// for it once they open the panel.
 async function alertOnCritical(reportId: string, schoolId: string | null, severity: string) {
   if ((severity !== "critical" && severity !== "serious") || !schoolId) return;
 
@@ -54,8 +59,8 @@ async function alertOnCritical(reportId: string, schoolId: string | null, severi
     .from("profiles")
     .select("id")
     .eq("school_id", schoolId)
-    .in("role", ["staff", "admin"])
     .eq("status", "approved")
+    .or("role.eq.admin,is_handler.eq.true")
     .returns<{ id: string }[]>();
 
   if (!recipients?.length) return;
