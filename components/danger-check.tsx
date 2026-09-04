@@ -5,7 +5,7 @@ import { HeartHandshake, AlertTriangle, CheckCircle2, Lock, Phone } from "lucide
 import { Button, Card } from "@/components/ui";
 import { CRISIS_LINES } from "@/lib/crisis-lines";
 
-// Step 1 of both the Bully and Conflict report flows. A "No" answer just
+// Step 1 of the Bully report flow. A "No" answer just
 // moves the wizard forward; a "Yes" answer takes over the screen with a
 // crisis-resources overlay whose numbers are real `tel:` links before the
 // student can continue.
@@ -52,13 +52,13 @@ export function DangerCheck({ onContinue }: { onContinue: (inDanger: boolean) =>
           <button
             type="button"
             onClick={() => onContinue(false)}
-            className="flex w-full items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4 text-left transition-colors hover:bg-[var(--color-background)]"
+            className="flex w-full items-center gap-3 rounded-xl border border-green-300 bg-green-50 px-4 py-4 text-left transition-colors hover:bg-green-100"
           >
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary-100)_70%,transparent)] text-[var(--color-primary-700)]">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
               <CheckCircle2 size={20} />
             </span>
             <span>
-              <span className="block font-semibold">No, we are safe right now</span>
+              <span className="block font-semibold text-green-700">No, we are safe right now</span>
               <span className="block text-sm text-[var(--color-text-muted)]">
                 Continue to file your report
               </span>

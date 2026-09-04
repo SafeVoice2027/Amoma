@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { NotificationRow } from "@/types/database";
+import type { NotificationRow, SeverityLevel } from "@/types/database";
 
 export type NotificationRowPick = Pick<NotificationRow, "id" | "report_id" | "created_at" | "read_at" | "urgency">;
 
@@ -47,11 +47,14 @@ export async function fetchNotifications(
 
 // Shared by the Staff and Admin layouts to turn raw notification rows into
 // display items for UrgentNotificationBell — needs each notification's
-// report's own created_at (not the notification's) for a correct case ID.
+// report's own created_at (not the notification's) for a correct case ID,
+// and its severity so the bell can play a different alarm for Critical vs
+// Serious (see supabase/migrations — alertOnCritical in
+// app/student/report/actions.ts now fires this for both tiers).
 export function buildUrgentNotificationItems(
   notifications: NotificationRowPick[],
-  reportsById: Map<string, { created_at: string }>,
-): { id: string; reportId: string; caseId: string; createdAt: string }[] {
+  reportsById: Map<string, { created_at: string; severity?: SeverityLevel | null }>,
+): { id: string; reportId: string; caseId: string; createdAt: string; severity: SeverityLevel | null }[] {
   return notifications
     .filter((n): n is NotificationRowPick & { report_id: string } => !!n.report_id && reportsById.has(n.report_id))
     .map((n) => ({
@@ -59,5 +62,6 @@ export function buildUrgentNotificationItems(
       reportId: n.report_id,
       caseId: formatCaseId(n.report_id, reportsById.get(n.report_id)!.created_at),
       createdAt: n.created_at,
+      severity: reportsById.get(n.report_id)!.severity ?? null,
     }));
 }

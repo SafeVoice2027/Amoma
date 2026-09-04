@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Heart, User, ArrowRight } from "lucide-react";
+import { AlertTriangle, User, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ReportsList } from "@/components/reports-list";
@@ -146,9 +146,7 @@ export default async function StudentHomePage() {
 
       <div className="mb-8 flex flex-col items-center text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shield-heart-icon.jpg" alt="" className="mb-2 h-14 w-auto rounded-xl shadow-sm" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/amoma-wordmark.png" alt="Amoma" className="h-6 w-auto" />
+        <img src="/amoma-logo.png" alt="Amoma" className="h-28 w-auto" />
       </div>
 
       <h1 className="text-center text-lg font-semibold">What would you like to report?</h1>
@@ -166,44 +164,13 @@ export default async function StudentHomePage() {
               <AlertTriangle size={20} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-[var(--color-primary-800)]">Bully</h2>
-                <span className="rounded-full bg-[var(--color-primary-100)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary-800)]">
-                  Most Common
-                </span>
-              </div>
+              <h2 className="font-semibold text-[var(--color-primary-800)]">Bully</h2>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                 Repeated harmful behavior targeting someone
               </p>
               <p className="mt-2 text-sm font-medium text-[var(--color-primary-700)]">Tap to report →</p>
             </div>
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-600)] text-white">
-              <ArrowRight size={16} />
-            </span>
-          </div>
-        </Link>
-
-        <Link
-          href="/student/report/conflict"
-          className="block rounded-2xl border border-[var(--color-accent-200)] bg-[var(--color-accent-50)] p-5 transition-shadow hover:shadow-md"
-        >
-          <div className="flex items-start gap-4">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-100)] text-[var(--color-accent-700)]">
-              <Heart size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-[var(--color-accent-800)]">Conflict</h2>
-                <span className="rounded-full bg-[var(--color-accent-100)] px-2 py-0.5 text-xs font-medium text-[var(--color-accent-800)]">
-                  Mutual Dispute
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                A disagreement or dispute between people
-              </p>
-              <p className="mt-2 text-sm font-medium text-[var(--color-accent-700)]">Tap to report →</p>
-            </div>
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-500)] text-white">
               <ArrowRight size={16} />
             </span>
           </div>

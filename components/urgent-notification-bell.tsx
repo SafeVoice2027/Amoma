@@ -3,33 +3,40 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import type { SeverityLevel } from "@/types/database";
 
 export interface UrgentNotificationItem {
   id: string;
   reportId: string;
   caseId: string;
   createdAt: string;
+  severity: SeverityLevel | null;
 }
 
-// Two-tone siren beep, repeated 3x — built with the Web Audio API so no
-// audio asset/licensing is needed and it's available the instant the page
-// loads. Browsers block audio before any user gesture on the page; that's
-// fine here since a staff/admin session always involves clicks before this
-// would ever matter, and the visual badge/list still works regardless.
-function playAlarm() {
+// Built with the Web Audio API so no audio asset/licensing is needed and
+// it's available the instant the page loads. Browsers block audio before
+// any user gesture on the page; that's fine here since a staff/admin
+// session always involves clicks before this would ever matter, and the
+// visual badge/list still works regardless.
+//
+// Critical gets the harsher two-tone siren (alternating high/low, square
+// wave, 3x) so it's unmistakably the more urgent of the two. Serious gets a
+// single, softer tone (one pitch, sine wave, 2x) — audibly distinct without
+// being alarming enough to be mistaken for Critical.
+function playAlarm(mostSevere: "critical" | "serious") {
   const AudioContextClass =
     window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) return;
   const ctx = new AudioContextClass();
   const now = ctx.currentTime;
 
-  const beep = (start: number, freq: number, duration: number) => {
+  const beep = (start: number, freq: number, duration: number, type: OscillatorType, peakGain: number) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "square";
+    osc.type = type;
     osc.frequency.setValueAtTime(freq, now + start);
     gain.gain.setValueAtTime(0.0001, now + start);
-    gain.gain.exponentialRampToValueAtTime(0.15, now + start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(peakGain, now + start + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -37,9 +44,15 @@ function playAlarm() {
     osc.stop(now + start + duration + 0.02);
   };
 
-  for (let i = 0; i < 3; i++) {
-    beep(i * 0.5, 880, 0.22);
-    beep(i * 0.5 + 0.25, 660, 0.22);
+  if (mostSevere === "critical") {
+    for (let i = 0; i < 3; i++) {
+      beep(i * 0.5, 880, 0.22, "square", 0.15);
+      beep(i * 0.5 + 0.25, 660, 0.22, "square", 0.15);
+    }
+  } else {
+    for (let i = 0; i < 2; i++) {
+      beep(i * 0.6, 523.25, 0.3, "sine", 0.1);
+    }
   }
 }
 
@@ -67,13 +80,14 @@ export function UrgentNotificationBell({
   useEffect(() => {
     if (unreadCount > 0 && !playedRef.current) {
       playedRef.current = true;
+      const mostSevere = items.some((i) => i.severity === "critical") ? "critical" : "serious";
       try {
-        playAlarm();
+        playAlarm(mostSevere);
       } catch {
         // Ignore — e.g. AudioContext blocked. The visual alert still shows.
       }
     }
-  }, [unreadCount]);
+  }, [unreadCount, items]);
 
   const showAlert = unreadCount > 0 && !dismissed;
 
@@ -123,7 +137,7 @@ export function UrgentNotificationBell({
                     className="block rounded-xl px-2 py-2 hover:bg-[var(--color-background)]"
                   >
                     <p className="text-sm font-medium text-[var(--color-danger-500)]">
-                      {item.caseId} — Critical / immediate danger
+                      {item.caseId} — {item.severity === "critical" ? "Critical / immediate danger" : "Serious"}
                     </p>
                     <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
                       {new Date(item.createdAt).toLocaleString()}

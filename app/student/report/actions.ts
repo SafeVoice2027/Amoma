@@ -14,8 +14,6 @@ export type SubmitBullyResult =
   | { error: string }
   | { success: true; severity: SeverityLevel; id: string; createdAt: string };
 
-export type SubmitConflictResult = { error: string } | { success: true; id: string; createdAt: string };
-
 function evidenceTypeFromMime(mime: string): string {
   if (mime.startsWith("video")) return "video";
   if (mime.startsWith("image")) return "photo";
@@ -42,12 +40,14 @@ async function uploadEvidence(
   }
 }
 
-// Fires a high-urgency, distinct-tone alert to staff + counselors at the
-// report's school. A real deployment would fan this out over SMS/push via a
-// Supabase Database Webhook; here we record the notification row that drives
-// it. Only critical-severity reports trigger this — the most urgent tier.
+// Fires a high-urgency alert to staff + counselors at the report's school.
+// A real deployment would fan this out over SMS/push via a Supabase
+// Database Webhook; here we record the notification row that drives it.
+// Critical AND Serious reports trigger this (UrgentNotificationBell plays a
+// different alarm tone for each, based on the report's own severity) —
+// Minor stays silent so the alarm doesn't lose meaning from over-firing.
 async function alertOnCritical(reportId: string, schoolId: string | null, severity: string) {
-  if (severity !== "critical" || !schoolId) return;
+  if ((severity !== "critical" && severity !== "serious") || !schoolId) return;
 
   const service = createServiceClient();
   const { data: recipients } = await service
@@ -139,7 +139,11 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
     return { error: "We couldn't submit your report right now. Please try again." };
   }
 
-  await supabase.from("report_bully_details").insert({
+  // This has silently failed on a live database before (schema out of sync
+  // with supabase/migrations/0009_consolidated_report_fields.sql) — the
+  // report itself still saves fine, but People Involved/Setting end up
+  // permanently empty with no error visible anywhere. Always check it.
+  const { error: bullyDetailsError } = await supabase.from("report_bully_details").insert({
     report_id: report.id,
     bullying_types: bullyingTypes,
     victim_grade_section: victimGradeSection || null,
@@ -147,6 +151,7 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
     oppressor_name: oppressorName || null,
     setting: setting || null,
   });
+  if (bullyDetailsError) console.error("[submitBullyReport] report_bully_details insert failed", bullyDetailsError);
 
   const files = formData.getAll("evidence").filter((f): f is File => f instanceof File);
   if (files.length) await uploadEvidence(supabase, report.id, profile.id, files);
@@ -182,51 +187,3 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
   return { success: true, severity: assessment.severity, id: report.id, createdAt: report.created_at };
 }
 
-export async function submitConflictReport(formData: FormData): Promise<SubmitConflictResult> {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  const supabase = await createClient();
-
-  const inDanger = formData.get("in_immediate_danger") === "true";
-  const isAnonymous = formData.get("is_anonymous") === "true";
-  const conflictReason = String(formData.get("conflict_reason") ?? "");
-  const victimGradeSection = String(formData.get("victim_grade_section") ?? "").trim();
-  const oppressorGradeSection = String(formData.get("oppressor_grade_section") ?? "").trim();
-  const oppressorName = String(formData.get("oppressor_name") ?? "").trim();
-  const setting = String(formData.get("setting") ?? "").trim();
-
-  const { data: report, error } = await supabase
-    .from("reports")
-    .insert({
-      type: "conflict",
-      reporter_id: profile.id,
-      school_id: profile.school_id,
-      is_anonymous: isAnonymous,
-      immediate_danger: inDanger,
-      description: conflictReason,
-      category: "conflict",
-    })
-    .select("id, created_at")
-    .single();
-
-  if (error || !report) {
-    return { error: "We couldn't submit your report right now. Please try again." };
-  }
-
-  await supabase.from("report_conflict_details").insert({
-    report_id: report.id,
-    conflict_reason: conflictReason,
-    victim_grade_section: victimGradeSection || null,
-    oppressor_grade_section: oppressorGradeSection || null,
-    oppressor_name: oppressorName || null,
-    setting: setting || null,
-  });
-
-  const files = formData.getAll("evidence").filter((f): f is File => f instanceof File);
-  if (files.length) await uploadEvidence(supabase, report.id, profile.id, files);
-
-  await notifyHandlersOfNewReport(report.id, profile.school_id);
-
-  revalidatePath("/student");
-  return { success: true, id: report.id, createdAt: report.created_at };
-}

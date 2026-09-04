@@ -6,7 +6,7 @@ import { markUrgentNotificationsRead } from "@/app/admin/actions";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { fetchNotifications, buildUrgentNotificationItems } from "@/lib/notifications";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { Profile, ReportTeacherTag } from "@/types/database";
+import type { Profile, ReportTeacherTag, SeverityLevel } from "@/types/database";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const profile = await requireAdminOrHandler();
@@ -26,8 +26,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const urgentNotifications = await fetchNotifications(supabase, profile.id, { urgency: "high" });
   const reportIds = [...new Set(urgentNotifications.map((n) => n.report_id).filter((id): id is string => !!id))];
   const { data: reports } = reportIds.length
-    ? await supabase.from("reports").select("id, created_at").in("id", reportIds)
-    : { data: [] as { id: string; created_at: string }[] };
+    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
+    : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
   const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
   const urgentItems = buildUrgentNotificationItems(urgentNotifications, reportsById);
   const unreadUrgentCount = urgentNotifications.filter((n) => !n.read_at).length;

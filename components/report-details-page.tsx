@@ -18,7 +18,7 @@ import { ConfirmationScreen } from "@/components/confirmation-screen";
 import { Button, Card } from "@/components/ui";
 import { SectionIcon } from "@/components/wizard-header";
 import { FieldLabel, inputClass } from "@/components/wizard";
-import { submitBullyReport, submitConflictReport } from "@/app/student/report/actions";
+import { submitBullyReport } from "@/app/student/report/actions";
 import { formatCaseId } from "@/lib/reports/case-id";
 import { BULLYING_TYPE_OPTIONS } from "@/lib/reports/bullying-types";
 import type { BullyingType } from "@/types/database";
@@ -48,21 +48,14 @@ const initialState: FormState = {
 };
 
 const COPY = {
-  bully: {
-    pageTitle: "Bully Report",
-    heading: "What Occurred?",
-    placeholder: "Tell us exactly what happened, and let us know if you were hurt in any way.",
-  },
-  conflict: {
-    pageTitle: "Conflict Report",
-    heading: "What's Going On?",
-    placeholder: "Describe the conflict in your own words. How did it affect you, and what outcome were you hoping for?",
-  },
+  pageTitle: "Bully Report",
+  heading: "What Occurred?",
+  placeholder: "Tell us exactly what happened, and let us know if you were hurt in any way.",
 } as const;
 
 type Page = "danger" | "details" | "review";
 
-export function ReportDetailsPage({ type }: { type: "bully" | "conflict" }) {
+export function ReportDetailsPage() {
   const router = useRouter();
   const [page, setPage] = useState<Page>("danger");
   const [form, setForm] = useState<FormState>(initialState);
@@ -70,7 +63,7 @@ export function ReportDetailsPage({ type }: { type: "bully" | "conflict" }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<{ id: string; createdAt: string } | null>(null);
   const [pending, startTransition] = useTransition();
-  const copy = COPY[type];
+  const copy = COPY;
 
   const goToReview = () => {
     if (!form.description.trim()) {
@@ -93,28 +86,16 @@ export function ReportDetailsPage({ type }: { type: "bully" | "conflict" }) {
     formData.set("setting", form.setting);
     form.evidence.forEach((file) => formData.append("evidence", file));
 
-    if (type === "bully") {
-      formData.set("description", form.description);
-      form.bullyingTypes.forEach((t) => formData.append("bullying_types", t));
-      startTransition(async () => {
-        const result = await submitBullyReport(formData);
-        if ("error" in result) {
-          setSubmitError(result.error);
-          return;
-        }
-        setSubmitted({ id: result.id, createdAt: result.createdAt });
-      });
-    } else {
-      formData.set("conflict_reason", form.description);
-      startTransition(async () => {
-        const result = await submitConflictReport(formData);
-        if ("error" in result) {
-          setSubmitError(result.error);
-          return;
-        }
-        setSubmitted({ id: result.id, createdAt: result.createdAt });
-      });
-    }
+    formData.set("description", form.description);
+    form.bullyingTypes.forEach((t) => formData.append("bullying_types", t));
+    startTransition(async () => {
+      const result = await submitBullyReport(formData);
+      if ("error" in result) {
+        setSubmitError(result.error);
+        return;
+      }
+      setSubmitted({ id: result.id, createdAt: result.createdAt });
+    });
   };
 
   if (submitted) {
@@ -167,41 +148,39 @@ export function ReportDetailsPage({ type }: { type: "bully" | "conflict" }) {
               placeholder={copy.placeholder}
             />
 
-            {type === "bully" && (
-              <div className="mt-4">
-                <FieldLabel>What type of bullying was this?</FieldLabel>
-                <p className="mb-2 text-xs text-[var(--color-text-muted)]">
-                  Select all that apply — an incident can involve more than one type.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {BULLYING_TYPE_OPTIONS.map((opt) => {
-                    const active = form.bullyingTypes.includes(opt.value);
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() =>
-                          setForm((f) => ({
-                            ...f,
-                            bullyingTypes: active
-                              ? f.bullyingTypes.filter((t) => t !== opt.value)
-                              : [...f.bullyingTypes, opt.value],
-                          }))
-                        }
-                        aria-pressed={active}
-                        className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                          active
-                            ? "border-[var(--color-brand)] bg-[var(--color-brand)] text-[var(--color-on-brand)]"
-                            : "border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)]"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="mt-4">
+              <FieldLabel>What type of bullying was this?</FieldLabel>
+              <p className="mb-2 text-xs text-[var(--color-text-muted)]">
+                Select all that apply — an incident can involve more than one type.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {BULLYING_TYPE_OPTIONS.map((opt) => {
+                  const active = form.bullyingTypes.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          bullyingTypes: active
+                            ? f.bullyingTypes.filter((t) => t !== opt.value)
+                            : [...f.bullyingTypes, opt.value],
+                        }))
+                      }
+                      aria-pressed={active}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "border-[var(--color-brand)] bg-[var(--color-brand)] text-[var(--color-on-brand)]"
+                          : "border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </Card>
 
           <Card>
@@ -309,18 +288,16 @@ export function ReportDetailsPage({ type }: { type: "bully" | "conflict" }) {
 
           <div className="space-y-2">
             <ReviewRow icon={<FileText size={16} />} label={copy.heading} value={form.description} />
-            {type === "bully" && (
-              <ReviewRow
-                icon={<Users size={16} />}
-                label="Type of Bullying"
-                value={
-                  form.bullyingTypes
-                    .map((t) => BULLYING_TYPE_OPTIONS.find((o) => o.value === t)?.label)
-                    .filter(Boolean)
-                    .join(", ") || ""
-                }
-              />
-            )}
+            <ReviewRow
+              icon={<Users size={16} />}
+              label="Type of Bullying"
+              value={
+                form.bullyingTypes
+                  .map((t) => BULLYING_TYPE_OPTIONS.find((o) => o.value === t)?.label)
+                  .filter(Boolean)
+                  .join(", ") || ""
+              }
+            />
             <ReviewRow icon={<Users size={16} />} label="Victim" value={form.victimGradeSection} />
             <ReviewRow
               icon={<Users size={16} />}

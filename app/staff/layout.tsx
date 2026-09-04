@@ -6,7 +6,7 @@ import { markUrgentNotificationsRead, markTeacherTagRead } from "@/app/staff/act
 import { StaffHeader } from "@/components/staff-header";
 import { fetchNotifications, buildUrgentNotificationItems } from "@/lib/notifications";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { ReportTeacherTag } from "@/types/database";
+import type { ReportTeacherTag, SeverityLevel } from "@/types/database";
 
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const profile = await requireProfile("staff");
@@ -15,8 +15,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   const urgentNotifications = await fetchNotifications(supabase, profile.id, { urgency: "high" });
   const reportIds = [...new Set(urgentNotifications.map((n) => n.report_id).filter((id): id is string => !!id))];
   const { data: reports } = reportIds.length
-    ? await supabase.from("reports").select("id, created_at").in("id", reportIds)
-    : { data: [] as { id: string; created_at: string }[] };
+    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
+    : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
   const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
   const urgentItems = buildUrgentNotificationItems(urgentNotifications, reportsById);
   const unreadUrgentCount = urgentNotifications.filter((n) => !n.read_at).length;
