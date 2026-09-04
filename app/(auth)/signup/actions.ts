@@ -50,11 +50,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   }
   // Staff can sign up with either a DepEd email (Teachers, Handlers) or an
   // Employee Number (Handlers only — see supabase/migrations/0013_staff_roster.sql).
-  // Admin has no Employee Number path and still requires a real email.
   const isEmployeeNumberSignup = role === "staff" && !identifier.includes("@");
-  if (role === "admin" && !identifier.includes("@")) {
-    return { error: "Please enter a valid DepEd email address.", success: false };
-  }
   if (isEmployeeNumberSignup && identifier.length < 4) {
     return { error: "Please enter a valid DepEd email address or Employee Number.", success: false };
   }

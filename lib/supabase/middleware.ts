@@ -12,9 +12,9 @@ const ROLE_HOME: Record<UserRole, string> = {
 // throughout the UI but are still `staff` rows under the hood — see
 // app/admin/login/page.tsx) — it can't require an already-authenticated
 // admin session, or no one could ever reach it. The real admin/developer
-// role's entry points, /developer/login and /developer/signup, don't need
-// an entry here: they don't start with "/admin" so roleForPath() below
-// never gates them in the first place.
+// role's entry point, /developer/login, doesn't need an entry here: it
+// doesn't start with "/admin" so roleForPath() below never gates it in the
+// first place.
 const ADMIN_PUBLIC_PATHS = ["/admin/login"];
 
 // Handlers get "practically the same view" as Admin (see
