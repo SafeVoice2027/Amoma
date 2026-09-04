@@ -2,24 +2,21 @@ import type { ReactNode } from "react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/(auth)/login/actions";
-import { markUrgentNotificationsRead, markTeacherTagRead } from "@/app/staff/actions";
+import {
+  markUrgentNotificationsRead,
+  markTeacherTagRead,
+  fetchUrgentAlerts as pollUrgentAlerts,
+} from "@/app/staff/actions";
 import { StaffHeader } from "@/components/staff-header";
-import { fetchNotifications, buildUrgentNotificationItems } from "@/lib/notifications";
+import { fetchUrgentAlerts } from "@/lib/notifications";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { ReportTeacherTag, SeverityLevel } from "@/types/database";
+import type { ReportTeacherTag } from "@/types/database";
 
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const profile = await requireProfile("staff");
   const supabase = await createClient();
 
-  const urgentNotifications = await fetchNotifications(supabase, profile.id, { urgency: "high" });
-  const reportIds = [...new Set(urgentNotifications.map((n) => n.report_id).filter((id): id is string => !!id))];
-  const { data: reports } = reportIds.length
-    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
-    : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
-  const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
-  const urgentItems = buildUrgentNotificationItems(urgentNotifications, reportsById);
-  const unreadUrgentCount = urgentNotifications.filter((n) => !n.read_at).length;
+  const { items: urgentItems, unreadCount: unreadUrgentCount } = await fetchUrgentAlerts(supabase, profile.id);
 
   // Mail inbox: reports an Admin has tagged this Teacher into. Only
   // meaningful for Teachers (is_handler = false) — Handlers already see
@@ -62,6 +59,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         urgentItems={urgentItems}
         unreadUrgentCount={unreadUrgentCount}
         markUrgentRead={markUrgentNotificationsRead}
+        pollUrgentAlerts={pollUrgentAlerts}
         tagItems={tagItems}
         markTagRead={markTeacherTagRead}
         showMail={!profile.is_handler}

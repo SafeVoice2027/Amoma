@@ -13,6 +13,7 @@ export function StaffHeader({
   urgentItems,
   unreadUrgentCount,
   markUrgentRead,
+  pollUrgentAlerts,
   tagItems,
   markTagRead,
   showMail,
@@ -22,6 +23,7 @@ export function StaffHeader({
   urgentItems: UrgentNotificationItem[];
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
+  pollUrgentAlerts: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
   tagItems: TeacherTagMailItem[];
   markTagRead: (tagId: string) => Promise<void>;
   showMail: boolean;
@@ -49,6 +51,7 @@ export function StaffHeader({
             unreadCount={unreadUrgentCount}
             reportBasePath="/staff/reports"
             markAllRead={markUrgentRead}
+            pollAction={pollUrgentAlerts}
           />
 
           <div className="relative">

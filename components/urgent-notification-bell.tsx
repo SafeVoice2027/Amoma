@@ -56,27 +56,44 @@ function playAlarm(mostSevere: "critical" | "serious") {
   }
 }
 
+// A server-rendered layout only fetches urgent alerts once, at page load —
+// a tab left open on the dashboard never learns about a report submitted
+// five minutes later until the viewer navigates or reloads. Polling is the
+// simplest fix without standing up a realtime channel.
+const POLL_INTERVAL_MS = 20_000;
+
 export function UrgentNotificationBell({
-  items,
-  unreadCount,
+  items: initialItems,
+  unreadCount: initialUnreadCount,
   reportBasePath,
   markAllRead,
+  pollAction,
   panelPlacement = "below",
 }: {
   items: UrgentNotificationItem[];
   unreadCount: number;
   reportBasePath: string;
   markAllRead: () => Promise<void>;
+  /** Re-fetches this viewer's own urgent alerts; polled every
+   *  POLL_INTERVAL_MS so a newly-arrived Critical/Serious report is noticed
+   *  (and alarmed for) while the tab stays open. */
+  pollAction: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
   /** "below" fits a horizontal header (panel drops down, right-aligned to
    *  the button); "right" fits a narrow vertical sidebar (panel opens to
    *  the button's right instead, so it doesn't overflow off-screen). */
   panelPlacement?: "below" | "right";
 }) {
+  const [items, setItems] = useState(initialItems);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [, startTransition] = useTransition();
   const playedRef = useRef(false);
+  // Seeded from the server-rendered snapshot so the poll below only alarms
+  // for alerts that show up *after* this mount, not ones already on screen.
+  const seenIdsRef = useRef(new Set(initialItems.map((i) => i.id)));
 
+  // Alarm once for whatever was already unread at page load.
   useEffect(() => {
     if (unreadCount > 0 && !playedRef.current) {
       playedRef.current = true;
@@ -87,7 +104,39 @@ export function UrgentNotificationBell({
         // Ignore — e.g. AudioContext blocked. The visual alert still shows.
       }
     }
-  }, [unreadCount, items]);
+    // Intentionally only the server-rendered snapshot — the poll effect
+    // below is what handles everything from here on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Then keep polling for anything new for as long as the tab stays open.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      let result: { items: UrgentNotificationItem[]; unreadCount: number };
+      try {
+        result = await pollAction();
+      } catch {
+        return; // e.g. offline for this tick — just try again next interval
+      }
+
+      const newItems = result.items.filter((i) => !seenIdsRef.current.has(i.id));
+      result.items.forEach((i) => seenIdsRef.current.add(i.id));
+
+      setItems(result.items);
+      setUnreadCount(result.unreadCount);
+
+      if (newItems.length > 0) {
+        setDismissed(false);
+        const mostSevere = newItems.some((i) => i.severity === "critical") ? "critical" : "serious";
+        try {
+          playAlarm(mostSevere);
+        } catch {
+          // Ignore — e.g. AudioContext blocked. The visual alert still shows.
+        }
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [pollAction]);
 
   const showAlert = unreadCount > 0 && !dismissed;
 

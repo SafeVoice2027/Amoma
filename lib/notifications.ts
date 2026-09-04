@@ -65,3 +65,29 @@ export function buildUrgentNotificationItems(
       severity: reportsById.get(n.report_id)!.severity ?? null,
     }));
 }
+
+export type UrgentAlertsResult = {
+  items: ReturnType<typeof buildUrgentNotificationItems>;
+  unreadCount: number;
+};
+
+// Both the initial server-rendered layout and UrgentNotificationBell's own
+// poll (see components/urgent-notification-bell.tsx — a plain server-rendered
+// page load never re-runs while a tab sits open, so without this the alarm
+// only ever fires on navigation) need the exact same "high-urgency
+// notifications, joined to their report's severity" shape. One place for it.
+export async function fetchUrgentAlerts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  recipientId: string,
+): Promise<UrgentAlertsResult> {
+  const notifications = await fetchNotifications(supabase, recipientId, { urgency: "high" });
+  const reportIds = [...new Set(notifications.map((n) => n.report_id).filter((id): id is string => !!id))];
+  const { data: reports } = reportIds.length
+    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
+    : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
+  const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
+  return {
+    items: buildUrgentNotificationItems(notifications, reportsById),
+    unreadCount: notifications.filter((n) => !n.read_at).length,
+  };
+}

@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/(auth)/login/actions";
-import { markUrgentNotificationsRead } from "@/app/admin/actions";
+import { markUrgentNotificationsRead, fetchUrgentAlerts as pollUrgentAlerts } from "@/app/admin/actions";
 import { AdminSidebar } from "@/components/admin-sidebar";
-import { fetchNotifications, buildUrgentNotificationItems } from "@/lib/notifications";
+import { fetchUrgentAlerts } from "@/lib/notifications";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { Profile, ReportTeacherTag, SeverityLevel } from "@/types/database";
+import type { Profile, ReportTeacherTag } from "@/types/database";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const profile = await requireAdminOrHandler();
@@ -23,14 +23,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       ])
     : [{ count: 0 }, { count: 0 }];
 
-  const urgentNotifications = await fetchNotifications(supabase, profile.id, { urgency: "high" });
-  const reportIds = [...new Set(urgentNotifications.map((n) => n.report_id).filter((id): id is string => !!id))];
-  const { data: reports } = reportIds.length
-    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
-    : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
-  const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
-  const urgentItems = buildUrgentNotificationItems(urgentNotifications, reportsById);
-  const unreadUrgentCount = urgentNotifications.filter((n) => !n.read_at).length;
+  const { items: urgentItems, unreadCount: unreadUrgentCount } = await fetchUrgentAlerts(supabase, profile.id);
 
   // Sent-tag history: every teacher tag any Admin has sent, school-wide.
   // Table doesn't exist until supabase/migrations/0010_handlers_and_teacher_tags.sql
@@ -77,6 +70,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         urgentItems={urgentItems}
         unreadUrgentCount={unreadUrgentCount}
         markUrgentRead={markUrgentNotificationsRead}
+        pollUrgentAlerts={pollUrgentAlerts}
         tagItems={tagItems}
         pendingApprovalsCount={pendingApprovalsCount ?? 0}
         openBugReportsCount={openBugReportsCount ?? 0}

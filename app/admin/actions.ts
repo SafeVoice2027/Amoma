@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { addFollowup as addFollowupShared } from "@/lib/reports/followups";
 import { getCurrentProfile } from "@/lib/auth";
+import { fetchUrgentAlerts as fetchUrgentAlertsShared, type UrgentAlertsResult } from "@/lib/notifications";
 import type { BugReportStatus, ReportStatus } from "@/types/database";
 
 export async function addFollowup(reportId: string, message: string) {
@@ -28,6 +29,18 @@ export async function markUrgentNotificationsRead() {
   if (error) console.error("[markUrgentNotificationsRead] update failed", error);
 
   revalidatePath("/admin");
+}
+
+// Polled by UrgentNotificationBell (see components/urgent-notification-bell.tsx)
+// so a tab left open notices — and alarms for — a new Critical/Serious
+// report without the admin having to navigate or reload. A plain server
+// component fetch on page load only ever sees what existed at that moment.
+export async function fetchUrgentAlerts(): Promise<UrgentAlertsResult> {
+  const admin = await getCurrentProfile();
+  if (!admin) return { items: [], unreadCount: 0 };
+
+  const supabase = await createClient();
+  return fetchUrgentAlertsShared(supabase, admin.id);
 }
 
 export async function updateReportStatus(reportId: string, status: ReportStatus) {

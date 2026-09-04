@@ -62,6 +62,7 @@ export function AdminSidebar({
   urgentItems,
   unreadUrgentCount,
   markUrgentRead,
+  pollUrgentAlerts,
   tagItems,
   pendingApprovalsCount,
   openBugReportsCount,
@@ -72,6 +73,7 @@ export function AdminSidebar({
   urgentItems: UrgentNotificationItem[];
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
+  pollUrgentAlerts: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
   tagItems: TeacherTagMailItem[];
   pendingApprovalsCount: number;
   openBugReportsCount: number;
@@ -91,6 +93,7 @@ export function AdminSidebar({
         unreadCount={unreadUrgentCount}
         reportBasePath="/admin/reports"
         markAllRead={markUrgentRead}
+        pollAction={pollUrgentAlerts}
         panelPlacement="right"
       />
       {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (

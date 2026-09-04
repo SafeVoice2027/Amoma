@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { addFollowup as addFollowupShared } from "@/lib/reports/followups";
 import { getCurrentProfile } from "@/lib/auth";
+import { fetchUrgentAlerts as fetchUrgentAlertsShared, type UrgentAlertsResult } from "@/lib/notifications";
 import type { ReportStatus } from "@/types/database";
 
 export async function addFollowup(reportId: string, message: string) {
@@ -28,6 +29,18 @@ export async function markUrgentNotificationsRead() {
   if (error) console.error("[markUrgentNotificationsRead] update failed", error);
 
   revalidatePath("/staff");
+}
+
+// Polled by UrgentNotificationBell (see components/urgent-notification-bell.tsx)
+// so a tab left open notices — and alarms for — a new Critical/Serious
+// report without the staff member having to navigate or reload. A plain
+// server component fetch on page load only ever sees what existed then.
+export async function fetchUrgentAlerts(): Promise<UrgentAlertsResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { items: [], unreadCount: 0 };
+
+  const supabase = await createClient();
+  return fetchUrgentAlertsShared(supabase, profile.id);
 }
 
 // A Teacher opening a tag from their mail inbox (components/teacher-tags-mail.tsx)
