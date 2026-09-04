@@ -5,7 +5,9 @@ import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
 import { StatusSelect } from "@/components/status-select";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
+import { TeacherSchedulingAction } from "@/components/teacher-scheduling-action";
 import { addFollowup, updateReportStatus } from "@/app/staff/actions";
+import { advanceReportStage } from "@/lib/reports/stage-progress";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
 import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
 import type {
@@ -115,6 +117,20 @@ export default async function StaffReportDetailPage({
     .maybeSingle<ReportStageProgress>();
   if (stageError) console.error("[staff report detail] stage progress query failed", stageError);
 
+  // A Teacher tagged into this specific report gets one narrow write action
+  // — advancing the Scheduling step — see
+  // supabase/migrations/0015_teacher_scheduling_permission.sql. Table
+  // doesn't exist until 0010_handlers_and_teacher_tags.sql has been run —
+  // fall through to "not tagged" (read-only tracker) rather than break the page.
+  const { data: teacherTag, error: teacherTagError } = await supabase
+    .from("report_teacher_tags")
+    .select("id")
+    .eq("report_id", id)
+    .eq("teacher_id", profile.id)
+    .maybeSingle();
+  if (teacherTagError) console.error("[staff report detail] teacher tag query failed", teacherTagError);
+  const canScheduleThisReport = !!teacherTag && stageProgress?.current_stage === "meeting";
+
   const authorIds = [...new Set((followups ?? []).map((f) => f.author_id))];
   const { data: authorProfiles } = authorIds.length
     ? await supabase
@@ -139,6 +155,11 @@ export default async function StaffReportDetailPage({
   async function changeStatus(status: Parameters<typeof updateReportStatus>[1]) {
     "use server";
     await updateReportStatus(id, status);
+  }
+
+  async function advanceScheduling() {
+    "use server";
+    return advanceReportStage(id, `/staff/reports/${id}`);
   }
 
   return (
@@ -251,9 +272,12 @@ export default async function StaffReportDetailPage({
             </Card>
           )}
 
-          {/* Teachers can see case progress but not act on it — only
-              Handlers drive the checklist, on /admin/reports/[id] now (see
-              supabase/migrations/0010_handlers_and_teacher_tags.sql). */}
+          {/* Teachers mostly see case progress without acting on it — the
+              checklist itself is driven from /admin/reports/[id] by
+              Handlers/Admin (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+              The one exception: a Teacher tagged into this report can
+              confirm the Scheduling step themselves once it's current (see
+              supabase/migrations/0015_teacher_scheduling_permission.sql). */}
           {stageProgress && (
             <Card>
               <h2 className="mb-4 text-lg font-semibold">Case status</h2>
@@ -263,6 +287,7 @@ export default async function StaffReportDetailPage({
                 reportCreatedAt={report.created_at}
                 initialProgress={stageProgress}
               />
+              {canScheduleThisReport && <TeacherSchedulingAction advance={advanceScheduling} />}
             </Card>
           )}
         </div>
