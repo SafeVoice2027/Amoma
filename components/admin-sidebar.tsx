@@ -10,13 +10,15 @@ import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-t
 
 // Bug reports and Accounts stay Admin-only — Handlers get everything else
 // on this nav (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
+// countKey looks up how many unaddressed items to badge the icon with —
+// see AdminLayout for where those counts are actually computed.
 const NAV_ITEMS = [
-  { href: "/admin", label: "Case overview", icon: LayoutGrid, adminOnly: false },
-  { href: "/admin/reports", label: "All reports", icon: FileText, adminOnly: false },
-  { href: "/admin/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true },
-  { href: "/admin/followups", label: "Followups", icon: MessageSquare, adminOnly: false },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, adminOnly: false },
-  { href: "/admin/accounts", label: "Accounts", icon: Users, adminOnly: true },
+  { href: "/admin", label: "Case overview", icon: LayoutGrid, adminOnly: false, countKey: "pendingApprovals" as const },
+  { href: "/admin/reports", label: "All reports", icon: FileText, adminOnly: false, countKey: null },
+  { href: "/admin/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true, countKey: "openBugReports" as const },
+  { href: "/admin/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
+  { href: "/admin/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
 ];
 
 function NavIcon({
@@ -24,24 +26,31 @@ function NavIcon({
   label,
   icon: Icon,
   active,
+  count,
 }: {
   href: string;
   label: string;
   icon: typeof LayoutGrid;
   active: boolean;
+  count?: number;
 }) {
   return (
     <Link
       href={href}
-      aria-label={label}
-      title={label}
-      className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+      aria-label={count ? `${label} (${count} pending)` : label}
+      title={count ? `${label} (${count} pending)` : label}
+      className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
         active
           ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]"
           : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
       }`}
     >
       <Icon size={19} />
+      {!!count && (
+        <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-danger-600)] px-1 text-[10px] font-semibold leading-none text-white">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
     </Link>
   );
 }
@@ -54,6 +63,8 @@ export function AdminSidebar({
   unreadUrgentCount,
   markUrgentRead,
   tagItems,
+  pendingApprovalsCount,
+  openBugReportsCount,
 }: {
   fullName: string;
   isAdmin: boolean;
@@ -62,9 +73,15 @@ export function AdminSidebar({
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
   tagItems: TeacherTagMailItem[];
+  pendingApprovalsCount: number;
+  openBugReportsCount: number;
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const counts: Record<string, number> = {
+    pendingApprovals: pendingApprovalsCount,
+    openBugReports: openBugReportsCount,
+  };
 
   return (
     <nav className="flex w-16 flex-shrink-0 flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
@@ -83,6 +100,7 @@ export function AdminSidebar({
           label={item.label}
           icon={item.icon}
           active={item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)}
+          count={item.countKey ? counts[item.countKey] : undefined}
         />
       ))}
 
