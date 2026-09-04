@@ -130,7 +130,7 @@ export function AdminSidebar({
                   /admin/settings page, replaced by this popover. */}
               <AccountSettingsPanel
                 name={fullName}
-                roleLabel={isAdmin ? "Admin" : "Handler"}
+                roleLabel={isAdmin ? "Developer" : "Admin"}
                 onSignOut={onSignOut}
                 onNavigate={() => setSettingsOpen(false)}
               />

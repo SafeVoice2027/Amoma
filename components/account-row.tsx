@@ -121,7 +121,7 @@ export function AccountRow({
               onChange={toggleHandler}
               className="h-4 w-4 rounded border-[var(--color-border)]"
             />
-            Handler — can update the Report Status checklist
+            Admin — can update the Report Status checklist
           </label>
           {handlerError && <p className="text-sm text-[var(--color-danger-600)]">{handlerError}</p>}
 

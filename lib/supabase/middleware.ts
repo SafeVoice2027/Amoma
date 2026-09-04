@@ -8,10 +8,14 @@ const ROLE_HOME: Record<UserRole, string> = {
   admin: "/admin",
 };
 
-// /admin/login and /admin/signup are the unauthenticated entry points to the
-// admin role itself — they can't require an already-authenticated admin
-// session, or no one could ever reach them.
-const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/signup"];
+// /admin/login is now the Handler login page (Handlers are branded "Admin"
+// throughout the UI but are still `staff` rows under the hood — see
+// app/admin/login/page.tsx) — it can't require an already-authenticated
+// admin session, or no one could ever reach it. The real admin/developer
+// role's entry points, /developer/login and /developer/signup, don't need
+// an entry here: they don't start with "/admin" so roleForPath() below
+// never gates them in the first place.
+const ADMIN_PUBLIC_PATHS = ["/admin/login"];
 
 // Handlers get "practically the same view" as Admin (see
 // supabase/migrations/0010_handlers_and_teacher_tags.sql) — everything

@@ -9,11 +9,10 @@ import { signup, type SignupState } from "@/app/(auth)/signup/actions";
 
 const initialState: SignupState = { error: null, success: false };
 
-// Deliberately not linked from the shared /signup page or anywhere else in
-// the UI — same reasoning as /admin/login: students and staff have no
-// reason to know an admin role (or how to request one) exists. Share this
-// URL directly with whoever should actually be requesting an admin account.
-export default function AdminSignupPage() {
+// Deliberately not linked from anywhere in the UI — same reasoning as
+// /developer/login. Share this URL directly with whoever should actually be
+// requesting a developer account.
+export default function DeveloperSignupPage() {
   const [state, formAction, pending] = useActionState(signup, initialState);
 
   if (state.success) {
@@ -22,11 +21,11 @@ export default function AdminSignupPage() {
         <Card>
           <h2 className="text-xl font-semibold">Request submitted</h2>
           <p className="mt-2 text-[var(--color-text-muted)]">
-            An existing admin needs to approve your account before you can log in. Once approved, log
-            in with your email and the password you just chose.
+            An existing developer needs to approve your account before you can log in. Once
+            approved, log in with your email and the password you just chose.
           </p>
 
-          <Link href="/admin/login">
+          <Link href="/developer/login">
             <Button variant="secondary" className="mt-6 w-full">
               Back to log in
             </Button>
@@ -41,14 +40,14 @@ export default function AdminSignupPage() {
       <Card>
         <p className="mb-5 text-center text-sm text-[var(--color-text-muted)]">
           Already have an account?{" "}
-          <Link href="/admin/login" className="font-medium text-[var(--color-brand)]">
+          <Link href="/developer/login" className="font-medium text-[var(--color-brand)]">
             Log in
           </Link>
         </p>
 
-        <h1 className="text-lg font-semibold">Request Admin Access</h1>
+        <h1 className="text-lg font-semibold">Request Developer Access</h1>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          An existing admin will review and approve your account before you can log in.
+          An existing developer will review and approve your account before you can log in.
         </p>
 
         <form action={formAction} className="mt-5 space-y-4">
@@ -75,7 +74,7 @@ export default function AdminSignupPage() {
 
           <div>
             <label htmlFor="identifier" className="mb-1 block text-sm font-medium">
-              DepEd email
+              Email
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
@@ -85,7 +84,7 @@ export default function AdminSignupPage() {
                 id="identifier"
                 name="identifier"
                 type="email"
-                placeholder="you@deped.gov.ph"
+                placeholder="you@example.com"
                 required
                 autoComplete="username"
                 className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-3 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"

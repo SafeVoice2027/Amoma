@@ -10,29 +10,23 @@ import { login, type LoginState } from "@/app/(auth)/login/actions";
 
 const initialState: LoginState = { error: null };
 
-// Handlers (Prefect of Discipline / CFLFO, etc. — see supabase/migrations/
-// 0010_handlers_and_teacher_tags.sql) are branded "Admin" throughout the UI
-// and get their own dedicated entry point here instead of sharing the
-// Student/Staff tabbed /login page. Under the hood they're still `staff`
-// rows with is_handler = true — this posts role="staff" just like the Staff
-// tab does, and login()/middleware already route a Handler to /admin after
-// auth. The real superuser (the app's own admin/maintainer account) moved to
-// /developer/login, since that's a different audience entirely.
-//
-// Deliberately not linked from the shared /login page or anywhere else in
-// the UI — same reasoning as /developer/login: no need to advertise that a
-// separate Admin entry point exists. Share this URL directly with Handlers.
-export default function HandlerLoginPage() {
+// Deliberately not linked from anywhere in the UI — this is the real
+// underlying `admin` DB role (renamed "Developer" here since Handlers now
+// carry the "Admin" label and log in at /admin/login instead — see that
+// page). No one but the developer has a reason to know this route exists.
+// The real access control is still the role check in proxy.ts/RLS; this is
+// purely about not advertising the entry point to the general public.
+export default function DeveloperLoginPage() {
   return (
     <AuthShell>
       <Suspense fallback={<Card className="min-h-[20rem]"> </Card>}>
-        <HandlerLoginForm />
+        <DeveloperLoginForm />
       </Suspense>
     </AuthShell>
   );
 }
 
-function HandlerLoginForm() {
+function DeveloperLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState(login, initialState);
   const next = useSearchParams().get("next") ?? "";
@@ -41,23 +35,23 @@ function HandlerLoginForm() {
     <Card className="!p-4">
       <p className="mb-3 text-center text-sm text-[var(--color-text-muted)]">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="font-medium text-[var(--color-brand)]">
+        <Link href="/developer/signup" className="font-medium text-[var(--color-brand)]">
           Request Access
         </Link>
       </p>
 
-      <h1 className="text-lg font-semibold">Admin Log In</h1>
+      <h1 className="text-lg font-semibold">Developer Log In</h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-        Log in with your DepEd email or Employee Number.
+        Log in with your developer credentials.
       </p>
 
       <form action={formAction} className="mt-3 space-y-2">
-        <input type="hidden" name="role" value="staff" />
+        <input type="hidden" name="role" value="admin" />
         <input type="hidden" name="next" value={next} />
 
         <div>
           <label htmlFor="identifier" className="mb-1 block text-sm font-medium">
-            Staff Email or Employee Number
+            Email Address
           </label>
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
@@ -66,8 +60,8 @@ function HandlerLoginForm() {
             <input
               id="identifier"
               name="identifier"
-              type="text"
-              placeholder="you@deped.gov.ph or Employee Number"
+              type="email"
+              placeholder="you@example.com"
               required
               autoComplete="username"
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-10 pr-4 text-base outline-none focus:border-[var(--color-brand)]"
