@@ -101,6 +101,10 @@ function computeStats(reports: ReportRow[]) {
 export default async function AdminHomePage() {
   const profile = await requireAdminOrHandler();
   const isAdmin = profile.role === "admin";
+  // Re-exported at app/developer/(protected)/page.tsx too — see
+  // lib/supabase/middleware.ts for why isAdmin and "reached via /developer"
+  // are always the same thing.
+  const basePath = isAdmin ? "/developer" : "/admin";
   const supabase = await createClient();
 
   // Account approvals stay Admin-only, so a Handler viewer never needs this
@@ -173,12 +177,17 @@ export default async function AdminHomePage() {
   return (
     <div>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
-        <AdminCaseOverview schoolName={school?.name ?? "Your school"} statsSlot={statsSlot} rows={rows} />
+        <AdminCaseOverview
+          schoolName={school?.name ?? "Your school"}
+          statsSlot={statsSlot}
+          rows={rows}
+          hrefBase={basePath}
+        />
 
         <div className="xl:sticky xl:top-8">
           <h2 className="mb-4 text-lg font-semibold">By severity</h2>
           <div className="max-h-[calc(100vh-8rem)] overflow-y-auto pr-1">
-            <SeverityReportBoard rows={severityRows} hrefBase="/admin/reports" />
+            <SeverityReportBoard rows={severityRows} hrefBase={`${basePath}/reports`} />
           </div>
         </div>
       </div>
@@ -204,11 +213,11 @@ export default async function AdminHomePage() {
       )}
 
       <div className="mt-10 flex flex-wrap gap-6">
-        <Link href="/admin/reports">
+        <Link href={`${basePath}/reports`}>
           <span className="text-sm font-medium text-[var(--color-brand)]">View full report queue →</span>
         </Link>
         {isAdmin && (
-          <Link href="/admin/bug-reports">
+          <Link href="/developer/bug-reports">
             <span className="text-sm font-medium text-[var(--color-brand)]">View bug reports →</span>
           </Link>
         )}

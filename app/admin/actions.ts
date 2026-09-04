@@ -8,11 +8,18 @@ import { getCurrentProfile } from "@/lib/auth";
 import { fetchUrgentAlerts as fetchUrgentAlertsShared, type UrgentAlertsResult } from "@/lib/notifications";
 import type { BugReportStatus, ReportStatus } from "@/types/database";
 
-export async function addFollowup(reportId: string, message: string) {
-  await addFollowupShared(reportId, message, `/admin/reports/${reportId}`);
+// This whole file is shared by Handler ("Admin", under /admin/*) and the
+// real superuser ("Developer", under /developer/*) — see
+// lib/supabase/middleware.ts for why those two never mix anymore. Anything
+// below that revalidates a path needs the CALLER's own basePath so it
+// invalidates the tree the viewer is actually looking at, not the other one.
+type DashboardBasePath = "/admin" | "/developer";
+
+export async function addFollowup(reportId: string, message: string, basePath: DashboardBasePath) {
+  await addFollowupShared(reportId, message, `${basePath}/reports/${reportId}`);
 }
 
-export async function markUrgentNotificationsRead() {
+export async function markUrgentNotificationsRead(basePath: DashboardBasePath) {
   const admin = await getCurrentProfile();
   if (!admin) return;
 
@@ -28,7 +35,7 @@ export async function markUrgentNotificationsRead() {
   // state until then.
   if (error) console.error("[markUrgentNotificationsRead] update failed", error);
 
-  revalidatePath("/admin");
+  revalidatePath(basePath);
 }
 
 // Polled by UrgentNotificationBell (see components/urgent-notification-bell.tsx)
@@ -43,15 +50,17 @@ export async function fetchUrgentAlerts(): Promise<UrgentAlertsResult> {
   return fetchUrgentAlertsShared(supabase, admin.id);
 }
 
-export async function updateReportStatus(reportId: string, status: ReportStatus) {
+export async function updateReportStatus(reportId: string, status: ReportStatus, basePath: DashboardBasePath) {
   const supabase = await createClient();
   const { data, error } = await supabase.from("reports").update({ status }).eq("id", reportId).select("id");
   if (error || !data?.length) {
     console.error("[updateReportStatus] update affected no rows", { reportId, status, error });
   }
-  revalidatePath(`/admin/reports/${reportId}`);
+  revalidatePath(`${basePath}/reports/${reportId}`);
 }
 
+// Bug reports are Developer-only (see app/developer/(protected)/bug-reports/page.tsx)
+// — no basePath needed, there's only one place this is ever called from.
 export async function updateBugReportStatus(bugReportId: string, status: BugReportStatus) {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -62,9 +71,12 @@ export async function updateBugReportStatus(bugReportId: string, status: BugRepo
   if (error || !data?.length) {
     console.error("[updateBugReportStatus] update affected no rows", { bugReportId, status, error });
   }
-  revalidatePath("/admin/bug-reports");
+  revalidatePath("/developer/bug-reports");
 }
 
+// Account approvals are Developer-only (see the isAdmin-gated section of
+// app/admin/(protected)/page.tsx, re-exported as the Developer overview too)
+// — no basePath needed, this only ever renders under /developer.
 export async function approveAccount(profileId: string) {
   const admin = await getCurrentProfile();
   if (!admin) return;
@@ -78,7 +90,7 @@ export async function approveAccount(profileId: string) {
   if (error || !data?.length) {
     console.error("[approveAccount] update affected no rows", { profileId, error });
   }
-  revalidatePath("/admin");
+  revalidatePath("/developer");
 }
 
 export async function rejectAccount(profileId: string) {
@@ -94,7 +106,7 @@ export async function rejectAccount(profileId: string) {
   if (error || !data?.length) {
     console.error("[rejectAccount] update affected no rows", { profileId, error });
   }
-  revalidatePath("/admin");
+  revalidatePath("/developer");
 }
 
 // Students and staff now choose their own password at signup (see
@@ -169,7 +181,7 @@ export async function tagTeacher(
     sent_at: new Date().toISOString(),
   });
 
-  revalidatePath(`/admin/reports/${reportId}`);
+  revalidatePath(`/developer/reports/${reportId}`);
   return { error: null };
 }
 
@@ -191,7 +203,7 @@ export async function toggleIsHandler(profileId: string, isHandler: boolean): Pr
     return { error: "Couldn't update that account. Please try again." };
   }
 
-  revalidatePath("/admin/accounts");
+  revalidatePath("/developer/accounts");
   return { error: null };
 }
 
@@ -219,7 +231,7 @@ export async function setEmployeeNumber(
     return { error: message };
   }
 
-  revalidatePath("/admin/accounts");
+  revalidatePath("/developer/accounts");
   return { error: null };
 }
 

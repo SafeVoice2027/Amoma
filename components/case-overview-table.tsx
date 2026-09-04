@@ -49,7 +49,17 @@ type CategoryFilter = "all" | ReportCategory;
 type StatusFilter = "all" | ReportStatus;
 type SortOrder = "newest" | "oldest" | "flagged";
 
-export function CaseOverviewTable({ rows, search }: { rows: CaseRow[]; search: string }) {
+export function CaseOverviewTable({
+  rows,
+  search,
+  hrefBase,
+}: {
+  rows: CaseRow[];
+  search: string;
+  /** "/admin" for a Handler viewer, "/developer" for the real admin — see
+   *  lib/supabase/middleware.ts. */
+  hrefBase: string;
+}) {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortOrder>("newest");
@@ -129,7 +139,7 @@ export function CaseOverviewTable({ rows, search }: { rows: CaseRow[]; search: s
               >
                 <td className="px-4 py-3">
                   <Link
-                    href={`/admin/reports/${row.id}`}
+                    href={`${hrefBase}/reports/${row.id}`}
                     className="font-semibold text-[var(--color-brand)] hover:underline"
                   >
                     {row.caseId}

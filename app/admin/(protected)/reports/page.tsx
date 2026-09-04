@@ -5,7 +5,9 @@ import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import type { Report } from "@/types/database";
 
 export default async function AdminReportsPage() {
-  await requireAdminOrHandler();
+  const profile = await requireAdminOrHandler();
+  // Re-exported at app/developer/(protected)/reports/page.tsx too.
+  const basePath = profile.role === "admin" ? "/developer" : "/admin";
   const supabase = await createClient();
 
   const { data: reports } = await supabase
@@ -19,7 +21,7 @@ export default async function AdminReportsPage() {
       <PageHeader title="All reports" subtitle="Every report across the school, most recent first." />
       <div className="space-y-3">
         {(reports ?? []).map((r) => (
-          <Link key={r.id} href={`/admin/reports/${r.id}`}>
+          <Link key={r.id} href={`${basePath}/reports/${r.id}`}>
             <Card className="flex items-center justify-between transition-shadow hover:shadow-md">
               <div>
                 <p className="font-medium">

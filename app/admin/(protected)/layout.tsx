@@ -11,6 +11,10 @@ import type { Profile, ReportTeacherTag } from "@/types/database";
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const profile = await requireAdminOrHandler();
   const isAdmin = profile.role === "admin";
+  // This layout is shared by both route trees via a re-export (see
+  // app/developer/(protected)/layout.tsx) — middleware guarantees isAdmin
+  // viewers only ever reach it via /developer, and Handlers only via /admin.
+  const basePath = isAdmin ? "/developer" : "/admin";
   const supabase = await createClient();
 
   // Sidebar badge counts — Account approvals and Bug reports are Admin-only
@@ -61,15 +65,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       teacherName: teacherNamesById.get(t.teacher_id) ?? "Staff member",
     }));
 
+  async function markUrgentRead() {
+    "use server";
+    await markUrgentNotificationsRead(basePath);
+  }
+
   return (
     <div className="control-shell flex flex-1 bg-[var(--color-background)]">
       <AdminSidebar
-        fullName={profile.full_name ?? "Admin"}
+        fullName={profile.full_name ?? (isAdmin ? "Developer" : "Admin")}
         isAdmin={isAdmin}
         onSignOut={logout}
         urgentItems={urgentItems}
         unreadUrgentCount={unreadUrgentCount}
-        markUrgentRead={markUrgentNotificationsRead}
+        markUrgentRead={markUrgentRead}
         pollUrgentAlerts={pollUrgentAlerts}
         tagItems={tagItems}
         pendingApprovalsCount={pendingApprovalsCount ?? 0}

@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/database";
 
+// "admin" here is the real superuser role, branded "Developer" throughout
+// the UI and routed to its own /developer/* tree — see lib/supabase/middleware.ts.
 const ROLE_HOME: Record<UserRole, string> = {
   student: "/student",
   staff: "/staff",
-  admin: "/admin",
+  admin: "/developer",
 };
 
 // Students authenticate with their LRN, but Supabase Auth identifies accounts

@@ -9,7 +9,9 @@ type FollowupRow = Pick<ReportFollowup, "id" | "report_id" | "message" | "author
 type ReportRow = Pick<Report, "id" | "type" | "severity" | "is_anonymous" | "created_at">;
 
 export default async function AdminFollowupsPage() {
-  await requireAdminOrHandler();
+  const profile = await requireAdminOrHandler();
+  // Re-exported at app/developer/(protected)/followups/page.tsx too.
+  const basePath = profile.role === "admin" ? "/developer" : "/admin";
   const supabase = await createClient();
 
   const { data: followups } = await supabase
@@ -55,7 +57,7 @@ export default async function AdminFollowupsPage() {
       <PageHeader title="Followups" subtitle="Reports with the most recent follow-up activity, most recent first." />
       <div className="space-y-3">
         {rows.map(({ report, followup }) => (
-          <Link key={report.id} href={`/admin/reports/${report.id}`}>
+          <Link key={report.id} href={`${basePath}/reports/${report.id}`}>
             <Card className="transition-shadow hover:shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

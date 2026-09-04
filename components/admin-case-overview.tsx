@@ -8,10 +8,14 @@ export function AdminCaseOverview({
   schoolName,
   statsSlot,
   rows,
+  hrefBase,
 }: {
   schoolName: string;
   statsSlot: ReactNode;
   rows: CaseRow[];
+  /** "/admin" for a Handler viewer, "/developer" for the real admin — see
+   *  lib/supabase/middleware.ts. */
+  hrefBase: string;
 }) {
   const [search, setSearch] = useState("");
 
@@ -35,7 +39,7 @@ export function AdminCaseOverview({
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">{statsSlot}</div>
 
-      <CaseOverviewTable rows={rows} search={search} />
+      <CaseOverviewTable rows={rows} search={search} hrefBase={hrefBase} />
     </div>
   );
 }

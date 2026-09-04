@@ -1,31 +1,35 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import type { UserRole } from "@/types/database";
 
-const ROLE_HOME: Record<UserRole, string> = {
+// Four distinct areas, each with its own "who's allowed" check — Handler and
+// the real superuser used to share /admin, which is exactly the "same
+// mistake" this split exists to avoid: a Handler (branded "Admin") only ever
+// reaches /admin/*, the real admin role (branded "Developer") only ever
+// reaches /developer/*, and neither can wander onto the other's URLs even by
+// typing them directly. The two route trees render the same underlying
+// pages (see app/developer/(protected)/* — thin re-exports of
+// app/admin/(protected)/*) but every internal link is computed from the
+// viewer's own role, so once routed correctly a session never crosses back.
+type Area = "student" | "staff" | "handler" | "developer";
+
+const AREA_HOME: Record<Area, string> = {
   student: "/student",
   staff: "/staff",
-  admin: "/admin",
+  handler: "/admin",
+  developer: "/developer",
 };
 
-// /admin/login is now the Handler login page (Handlers are branded "Admin"
-// throughout the UI but are still `staff` rows under the hood — see
-// app/admin/login/page.tsx) — it can't require an already-authenticated
-// admin session, or no one could ever reach it. The real admin/developer
-// role's entry point, /developer/login, doesn't need an entry here: it
-// doesn't start with "/admin" so roleForPath() below never gates it in the
-// first place.
-const ADMIN_PUBLIC_PATHS = ["/admin/login"];
+// The login pages are the unauthenticated entry points to their area — they
+// can't require an already-authenticated session of that role, or no one
+// could ever reach them.
+const LOGIN_PATHS = ["/admin/login", "/developer/login"];
 
-// Handlers get "practically the same view" as Admin (see
-// supabase/migrations/0010_handlers_and_teacher_tags.sql) — everything
-// under /admin is shared, except these two, which stay Admin-only.
-const ADMIN_ONLY_PATHS = ["/admin/accounts", "/admin/bug-reports"];
-
-function roleForPath(pathname: string): UserRole | null {
+function areaForPath(pathname: string): Area | null {
+  if (LOGIN_PATHS.includes(pathname)) return null;
   if (pathname.startsWith("/student")) return "student";
   if (pathname.startsWith("/staff")) return "staff";
-  if (pathname.startsWith("/admin") && !ADMIN_PUBLIC_PATHS.includes(pathname)) return "admin";
+  if (pathname.startsWith("/admin")) return "handler";
+  if (pathname.startsWith("/developer")) return "developer";
   return null;
 }
 
@@ -84,9 +88,9 @@ export async function updateSession(request: NextRequest) {
   if (isServerAction) return supabaseResponse;
 
   const { pathname } = request.nextUrl;
-  const requiredRole = roleForPath(pathname);
+  const requiredArea = areaForPath(pathname);
 
-  if (requiredRole) {
+  if (requiredArea) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
@@ -101,15 +105,17 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     const isHandler = profile?.role === "staff" && !!profile.is_handler;
-    // A Handler is allowed onto /admin itself (same role check every other
-    // path uses) EXCEPT the two Admin-only sub-paths.
-    const roleMatches =
-      profile?.role === requiredRole ||
-      (requiredRole === "admin" && isHandler && !ADMIN_ONLY_PATHS.includes(pathname));
+    const viewerArea: Area | null = !profile
+      ? null
+      : profile.role === "admin"
+        ? "developer"
+        : isHandler
+          ? "handler"
+          : (profile.role as Area);
 
-    if (!profile || !roleMatches) {
+    if (!profile || viewerArea !== requiredArea) {
       const url = request.nextUrl.clone();
-      url.pathname = profile ? (isHandler ? "/admin" : ROLE_HOME[profile.role as UserRole]) : "/login";
+      url.pathname = viewerArea ? AREA_HOME[viewerArea] : "/login";
       return NextResponse.redirect(url);
     }
 

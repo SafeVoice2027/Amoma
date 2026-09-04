@@ -8,17 +8,20 @@ import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
 import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
 
-// Bug reports and Accounts stay Admin-only — Handlers get everything else
-// on this nav (see supabase/migrations/0010_handlers_and_teacher_tags.sql).
-// countKey looks up how many unaddressed items to badge the icon with —
-// see AdminLayout for where those counts are actually computed.
+// Bug reports and Accounts are Developer-only — they only exist under
+// /developer/* at all now (see app/developer/(protected)/{bug-reports,accounts}),
+// Handlers never see them. Every other item exists under both /admin and
+// /developer (see app/developer/(protected)/* — thin re-exports of
+// app/admin/(protected)/*); `path` is relative to whichever basePath the
+// viewer is actually on. countKey looks up how many unaddressed items to
+// badge the icon with — see AdminLayout for where those counts are computed.
 const NAV_ITEMS = [
-  { href: "/admin", label: "Case overview", icon: LayoutGrid, adminOnly: false, countKey: "pendingApprovals" as const },
-  { href: "/admin/reports", label: "All reports", icon: FileText, adminOnly: false, countKey: null },
-  { href: "/admin/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true, countKey: "openBugReports" as const },
-  { href: "/admin/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
-  { href: "/admin/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
+  { path: "", label: "Case overview", icon: LayoutGrid, adminOnly: false, countKey: "pendingApprovals" as const },
+  { path: "/reports", label: "All reports", icon: FileText, adminOnly: false, countKey: null },
+  { path: "/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true, countKey: "openBugReports" as const },
+  { path: "/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
+  { path: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
+  { path: "/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
 ];
 
 function NavIcon({
@@ -80,6 +83,7 @@ export function AdminSidebar({
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const basePath = isAdmin ? "/developer" : "/admin";
   const counts: Record<string, number> = {
     pendingApprovals: pendingApprovalsCount,
     openBugReports: openBugReportsCount,
@@ -87,25 +91,28 @@ export function AdminSidebar({
 
   return (
     <nav className="flex w-16 flex-shrink-0 flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
-      <TeacherTagsMail items={tagItems} reportBasePath="/admin/reports" mode="sent" panelPlacement="right" />
+      <TeacherTagsMail items={tagItems} reportBasePath={`${basePath}/reports`} mode="sent" panelPlacement="right" />
       <UrgentNotificationBell
         items={urgentItems}
         unreadCount={unreadUrgentCount}
-        reportBasePath="/admin/reports"
+        reportBasePath={`${basePath}/reports`}
         markAllRead={markUrgentRead}
         pollAction={pollUrgentAlerts}
         panelPlacement="right"
       />
-      {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
-        <NavIcon
-          key={item.href}
-          href={item.href}
-          label={item.label}
-          icon={item.icon}
-          active={item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)}
-          count={item.countKey ? counts[item.countKey] : undefined}
-        />
-      ))}
+      {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => {
+        const href = `${basePath}${item.path}`;
+        return (
+          <NavIcon
+            key={item.path}
+            href={href}
+            label={item.label}
+            icon={item.icon}
+            active={item.path === "" ? pathname === basePath : pathname.startsWith(href)}
+            count={item.countKey ? counts[item.countKey] : undefined}
+          />
+        );
+      })}
 
       <div className="relative">
         <button

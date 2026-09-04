@@ -84,6 +84,8 @@ export default async function AdminReportDetailPage({
   const { id } = await params;
   const profile = await requireAdminOrHandler();
   const isAdmin = profile.role === "admin";
+  // Re-exported at app/developer/(protected)/reports/[id]/page.tsx too.
+  const basePath = isAdmin ? "/developer" : "/admin";
   const supabase = await createClient();
 
   const report = await fetchReport(supabase, id);
@@ -215,12 +217,12 @@ export default async function AdminReportDetailPage({
 
   async function sendMessage(message: string) {
     "use server";
-    await addFollowup(id, message);
+    await addFollowup(id, message, basePath);
   }
 
   async function changeStatus(status: Parameters<typeof updateReportStatus>[1]) {
     "use server";
-    await updateReportStatus(id, status);
+    await updateReportStatus(id, status, basePath);
   }
 
   async function reveal(reason: string, notes: string) {
@@ -235,12 +237,12 @@ export default async function AdminReportDetailPage({
 
   async function advanceStage() {
     "use server";
-    return advanceReportStage(id, `/admin/reports/${id}`);
+    return advanceReportStage(id, `${basePath}/reports/${id}`);
   }
 
   async function revertStage() {
     "use server";
-    return revertReportStage(id, `/admin/reports/${id}`);
+    return revertReportStage(id, `${basePath}/reports/${id}`);
   }
 
   return (
