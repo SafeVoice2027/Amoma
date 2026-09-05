@@ -117,7 +117,6 @@ export default async function StudentHomePage() {
     return {
       label: `Wk ${i + 1}`,
       bully: (reports ?? []).filter((r) => r.type === "bully" && inRange(new Date(r.created_at))).length,
-      conflict: (reports ?? []).filter((r) => r.type === "conflict" && inRange(new Date(r.created_at))).length,
     };
   });
   const statusCounts = {

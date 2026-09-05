@@ -6,7 +6,6 @@ import { Card } from "@/components/ui";
 interface DayBucket {
   label: string;
   bully: number;
-  conflict: number;
 }
 
 interface StatusCounts {
@@ -17,7 +16,7 @@ interface StatusCounts {
 
 export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCounts: StatusCounts }) {
   const [tab, setTab] = useState<"types" | "resolution">("types");
-  const maxCount = Math.max(1, ...days.flatMap((d) => [d.bully, d.conflict]));
+  const maxCount = Math.max(1, ...days.map((d) => d.bully));
   const total = statusCounts.resolved + statusCounts.in_process + statusCounts.unresolved;
   const resolvedPct = total ? Math.round((statusCounts.resolved / total) * 100) : 0;
   const statusMax = Math.max(statusCounts.resolved, statusCounts.in_process, statusCounts.unresolved);
@@ -55,15 +54,9 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
         <div>
           <div className="mb-3 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
             <span>Reports This Month</span>
-            <span className="flex items-center gap-3">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-[var(--color-primary-600)]" />
-                Bully
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-[var(--color-accent-500)]" />
-                Conflict
-              </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[var(--color-primary-600)]" />
+              Bully
             </span>
           </div>
           <div className="flex h-32 items-end justify-between gap-2">
@@ -73,10 +66,6 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
                   <div
                     className="w-2.5 rounded-t bg-[var(--color-primary-600)]"
                     style={{ height: `${(d.bully / maxCount) * 100}%` }}
-                  />
-                  <div
-                    className="w-2.5 rounded-t bg-[var(--color-accent-500)]"
-                    style={{ height: `${(d.conflict / maxCount) * 100}%` }}
                   />
                 </div>
                 <span className="text-[10px] text-[var(--color-text-muted)]">{d.label}</span>

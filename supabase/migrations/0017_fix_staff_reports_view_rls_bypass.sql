@@ -1,0 +1,32 @@
+-- =========================================================
+-- Amoma — Fix staff_reports_view bypassing RLS entirely
+-- File: supabase/migrations/0017_fix_staff_reports_view_rls_bypass.sql
+-- =========================================================
+-- Run via: supabase migration up
+-- (or paste into the Supabase SQL editor)
+--
+-- Live diagnosis: after 0016 restricted a plain Teacher to only see reports
+-- they're tagged into, a direct `select * from reports` correctly returned
+-- nothing for an untagged Teacher's session — but `staff_reports_view`
+-- (what every staff-facing page actually queries) still returned every
+-- report. Root cause: Postgres views run with the *view owner's*
+-- permissions by default, not the querying user's, for the purpose of row
+-- security — since the view owner (whichever role ran 0001's migration)
+-- effectively bypasses RLS on tables it owns, querying THROUGH the view
+-- bypassed 0016's new policy entirely, regardless of who was asking.
+--
+-- This has been true since the view was first created in
+-- 0001_init_schema.sql — it was just invisible until now, because Handlers
+-- and Admin (the only ones anyone tested this view with before) were
+-- supposed to see every report anyway.
+--
+-- `security_invoker = true` (Postgres 15+) makes the view evaluate with the
+-- querying user's own permissions instead — RLS on `reports` now actually
+-- applies when read through this view, same as querying the table directly.
+-- =========================================================
+
+alter view staff_reports_view set (security_invoker = true);
+
+-- =========================================================
+-- End of migration
+-- =========================================================

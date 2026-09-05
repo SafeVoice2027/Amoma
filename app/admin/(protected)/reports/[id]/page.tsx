@@ -165,11 +165,11 @@ export default async function AdminReportDetailPage({
     .maybeSingle<ReportStageProgress>();
   if (stageError) console.error("[admin report detail] stage progress query failed", stageError);
 
-  // Tagging is Admin-only (see the RLS policy on report_teacher_tags in
-  // supabase/migrations/0010_handlers_and_teacher_tags.sql) — skip the
-  // query entirely for a Handler viewer, who never sees the panel below.
+  // Tagging is Handler-only, not Developer (see
+  // supabase/migrations/0018_handler_tags_teacher_not_developer.sql) — skip
+  // the query entirely for a Developer viewer, who never sees the panel below.
   let teachers: Pick<Profile, "id" | "full_name">[] | null = null;
-  if (isAdmin) {
+  if (!isAdmin) {
     // is_handler doesn't exist until
     // supabase/migrations/0010_handlers_and_teacher_tags.sql has been run —
     // filtering on it fails the whole query. Fall back to every approved
@@ -349,7 +349,7 @@ export default async function AdminReportDetailPage({
             </dl>
           </Card>
 
-          {isAdmin && (
+          {!isAdmin && (
             <TagTeacherPanel
               teachers={(teachers ?? []).map((t) => ({ id: t.id, fullName: t.full_name ?? "(no name on file)" }))}
               tagTeacher={tag}

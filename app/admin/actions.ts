@@ -148,17 +148,18 @@ export async function changeUserPassword(
   return { error: null };
 }
 
-// Admin-only: tags a Teacher into a report (see
-// supabase/migrations/0010_handlers_and_teacher_tags.sql). Distinct from
-// case ownership — a report can be tagged to any number of teachers.
-// Fires a notification the same way addFollowup() does for a reporter reply.
+// Handler-only (not Developer — see
+// supabase/migrations/0018_handler_tags_teacher_not_developer.sql):
+// tags a Teacher into a report. Distinct from case ownership — a report
+// can be tagged to any number of teachers. Fires a notification the same
+// way addFollowup() does for a reporter reply.
 export async function tagTeacher(
   reportId: string,
   teacherId: string,
   note: string,
 ): Promise<{ error: string | null }> {
   const admin = await getCurrentProfile();
-  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  if (!admin || !(admin.role === "staff" && admin.is_handler)) return { error: "Not authorized." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("report_teacher_tags").insert({

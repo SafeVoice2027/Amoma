@@ -29,14 +29,18 @@ async function uploadEvidence(
   for (const file of files) {
     if (!file || file.size === 0) continue;
     const path = `${reportId}/${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from("report_evidence").upload(path, file);
-    if (error) continue;
-    await supabase.from("report_evidence").insert({
+    const { error: uploadError } = await supabase.storage.from("report_evidence").upload(path, file);
+    if (uploadError) {
+      console.error("[uploadEvidence] storage upload failed", { reportId, fileName: file.name, uploadError });
+      continue;
+    }
+    const { error: insertError } = await supabase.from("report_evidence").insert({
       report_id: reportId,
       storage_path: path,
       file_type: evidenceTypeFromMime(file.type),
       uploaded_by: userId,
     });
+    if (insertError) console.error("[uploadEvidence] report_evidence insert failed", { reportId, fileName: file.name, insertError });
   }
 }
 
