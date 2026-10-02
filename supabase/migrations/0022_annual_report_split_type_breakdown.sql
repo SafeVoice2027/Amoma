@@ -16,7 +16,18 @@
 -- migration is that correction.
 -- =========================================================
 
-alter table annual_reports rename column breakdown_by_type to breakdown_by_bullying_type;
+-- Guarded so re-running this file (or running it after the addendum's own
+-- Section 4 correction) doesn't fail with 42703 on an already-renamed column.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'annual_reports' and column_name = 'breakdown_by_type'
+  ) then
+    alter table annual_reports rename column breakdown_by_type to breakdown_by_bullying_type;
+  end if;
+end $$;
+
 alter table annual_reports add column if not exists breakdown_by_report_type jsonb not null default '{}';
 
 create or replace function generate_annual_report()
