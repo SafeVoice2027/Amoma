@@ -8,7 +8,8 @@ import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
 import { SeverityReportBoard } from "@/components/severity-report-board";
 import { formatCaseId } from "@/lib/reports/case-id";
-import type { Profile, StaffReportsView, UserRole } from "@/types/database";
+import { TypeFileBrowser } from "@/components/type-file-browser";
+import type { Profile, ReportTypeFile, StaffReportsView, UserRole } from "@/types/database";
 
 type ReportRow = Pick<
   StaffReportsView,
@@ -129,6 +130,12 @@ export default async function AdminHomePage() {
 
   const allReports = reportsResult;
 
+  const { data: typeFiles, error: typeFilesError } = await supabase
+    .from("report_type_files")
+    .select("*")
+    .returns<ReportTypeFile[]>();
+  if (typeFilesError) console.error("[admin overview] report_type_files query failed", typeFilesError);
+
   const staffIds = [...new Set(allReports.map((r) => r.assigned_staff_id).filter((id): id is string => !!id))];
   const { data: staffProfiles } = staffIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", staffIds).returns<Pick<Profile, "id" | "full_name">[]>()
@@ -190,6 +197,10 @@ export default async function AdminHomePage() {
             <SeverityReportBoard rows={severityRows} hrefBase={`${basePath}/reports`} />
           </div>
         </div>
+      </div>
+
+      <div className="mt-10">
+        <TypeFileBrowser rows={typeFiles ?? []} reportHrefBase={`${basePath}/reports`} />
       </div>
 
       {isAdmin && (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
-import type { SeverityLevel } from "@/types/database";
+import { TypeFileBrowser } from "@/components/type-file-browser";
+import type { ReportTypeFile, SeverityLevel } from "@/types/database";
 
 const SEVERITY_ORDER: (SeverityLevel | null)[] = ["critical", "serious", "less_serious", "minor", null];
 const SEVERITY_TITLES: Record<string, string> = {
@@ -33,11 +34,13 @@ export function StaffTeacherHome({
   summary,
   counts,
   rows,
+  typeFiles,
 }: {
   firstName: string;
   summary: string;
   counts: { resolved: number; in_process: number; unresolved: number };
   rows: TeacherHomeRow[];
+  typeFiles: ReportTypeFile[];
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
@@ -55,6 +58,10 @@ export function StaffTeacherHome({
           <TrendTile label="Resolved" value={counts.resolved} />
           <TrendTile label="In process" value={counts.in_process} />
           <TrendTile label="Unresolved" value={counts.unresolved} />
+        </div>
+
+        <div className="mt-8">
+          <TypeFileBrowser rows={typeFiles} reportHrefBase="/staff/reports" />
         </div>
       </div>
 

@@ -196,3 +196,35 @@ export interface ReportStageProgress {
   // See supabase/migrations/0008_meeting_response.sql.
   student_meeting_response: MeetingResponse | null;
 }
+
+// See the Filing System addendum's annual_reports table (and
+// supabase/migrations/0022_annual_report_split_type_breakdown.sql for why
+// the type breakdown is split in two). Each breakdown is a jsonb object of
+// { key: count }.
+export interface AnnualReport {
+  id: string;
+  year: number;
+  total_reports: number;
+  resolved_count: number;
+  unresolved_count: number;
+  in_process_count: number;
+  breakdown_by_report_type: Record<string, number>;
+  breakdown_by_bullying_type: Record<string, number>;
+  breakdown_by_severity: Record<string, number>;
+  breakdown_by_month: Record<string, number>;
+  generated_at: string;
+  printed: boolean;
+  printed_at: string | null;
+  printed_by: string | null;
+}
+
+// One row per (report, bullying type) — a multi-type report appears once
+// per folder. See the report_type_files view.
+export interface ReportTypeFile {
+  report_id: string;
+  bullying_type: BullyingType;
+  status: ReportStatus;
+  severity: SeverityLevel | null;
+  created_at: string;
+  school_id: string | null;
+}

@@ -109,6 +109,32 @@ export async function rejectAccount(profileId: string) {
   revalidatePath("/developer");
 }
 
+// Both Admin (Handler) and Developer can mark an annual report printed —
+// RLS on annual_reports allows exactly those two (see
+// supabase/migrations/0023_annual_reports_handler_access.sql).
+export async function markAnnualReportPrinted(
+  id: string,
+  basePath: DashboardBasePath,
+): Promise<{ error: string | null }> {
+  const profile = await getCurrentProfile();
+  const allowed = profile && (profile.role === "admin" || (profile.role === "staff" && profile.is_handler));
+  if (!profile || !allowed) return { error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("annual_reports")
+    .update({ printed: true, printed_at: new Date().toISOString(), printed_by: profile.id })
+    .eq("id", id)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("[markAnnualReportPrinted] update affected no rows", { id, error });
+    return { error: "Couldn't mark that report as printed. Please try again." };
+  }
+
+  revalidatePath(`${basePath}/overview/annual`);
+  return { error: null };
+}
+
 // Students and staff now choose their own password at signup (see
 // app/(auth)/signup/actions.ts) and there's no self-service reset — a
 // synthetic LRN email has no real inbox to send a reset link to anyway (see

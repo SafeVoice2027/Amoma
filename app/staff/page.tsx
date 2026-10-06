@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { summarizeUnresolved } from "@/lib/ai/summary";
 import { StaffTeacherHome } from "@/components/staff-teacher-home";
-import type { ReportFollowup, StaffReportsView } from "@/types/database";
+import type { ReportFollowup, ReportTypeFile, StaffReportsView } from "@/types/database";
 
 type ReportRow = Pick<
   StaffReportsView,
@@ -63,5 +63,21 @@ export default async function StaffHomePage() {
 
   const firstName = (profile.full_name ?? "there").split(" ")[0];
 
-  return <StaffTeacherHome firstName={firstName} summary={summary} counts={counts} rows={rows} />;
+  // Same RLS-scoped view every role reads — for a Teacher that's only the
+  // reports they've been tagged into (see TypeFileBrowser).
+  const { data: typeFiles, error: typeFilesError } = await supabase
+    .from("report_type_files")
+    .select("*")
+    .returns<ReportTypeFile[]>();
+  if (typeFilesError) console.error("[staff home] report_type_files query failed", typeFilesError);
+
+  return (
+    <StaffTeacherHome
+      firstName={firstName}
+      summary={summary}
+      counts={counts}
+      rows={rows}
+      typeFiles={typeFiles ?? []}
+    />
+  );
 }

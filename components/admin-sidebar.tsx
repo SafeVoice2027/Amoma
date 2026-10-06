@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, Users, Settings } from "lucide-react";
+import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, ClipboardList, Users, Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
 import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { path: "/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true, countKey: "openBugReports" as const },
   { path: "/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
   { path: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
+  { path: "/overview", label: "Reports overview", icon: ClipboardList, adminOnly: false, countKey: null },
   { path: "/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
 ];
 
@@ -90,7 +91,7 @@ export function AdminSidebar({
   };
 
   return (
-    <nav className="flex w-16 flex-shrink-0 flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
+    <nav className="flex w-16 flex-shrink-0 print:hidden flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
       <TeacherTagsMail items={tagItems} reportBasePath={`${basePath}/reports`} mode="sent" panelPlacement="right" />
       <UrgentNotificationBell
         items={urgentItems}
