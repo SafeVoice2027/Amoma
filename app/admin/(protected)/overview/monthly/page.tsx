@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader } from "@/components/ui";
 import { MONTH_LABELS, OverviewBreakdown, type OverviewData } from "@/components/overview-breakdown";
-import type { ReportStatus, ReportType, SeverityLevel } from "@/types/database";
+import type { ReportStatus, SeverityLevel } from "@/types/database";
 
 interface MonthlyRow {
   month: string;
@@ -59,10 +59,10 @@ export default async function MonthlyOverviewPage({
     const [{ data: reports }, { data: typeFiles }] = await Promise.all([
       supabase
         .from("reports")
-        .select("type, status, severity")
+        .select("status, severity")
         .gte("created_at", start)
         .lt("created_at", end)
-        .returns<{ type: ReportType; status: ReportStatus; severity: SeverityLevel | null }[]>(),
+        .returns<{ status: ReportStatus; severity: SeverityLevel | null }[]>(),
       supabase
         .from("report_type_files")
         .select("bullying_type")
@@ -77,7 +77,6 @@ export default async function MonthlyOverviewPage({
       resolved: rows.filter((r) => r.status === "resolved").length,
       unresolved: rows.filter((r) => r.status === "unresolved").length,
       inProcess: rows.filter((r) => r.status === "in_process").length,
-      byReportType: countBy(rows, (r) => r.type),
       byBullyingType: countBy(typeFiles ?? [], (t) => t.bullying_type),
       bySeverity: countBy(rows, (r) => r.severity),
     };

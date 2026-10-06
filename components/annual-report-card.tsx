@@ -62,7 +62,6 @@ export function AnnualReportCard({
               resolved: report.resolved_count,
               unresolved: report.unresolved_count,
               inProcess: report.in_process_count,
-              byReportType: report.breakdown_by_report_type,
               byBullyingType: report.breakdown_by_bullying_type,
               bySeverity: report.breakdown_by_severity,
             }}

@@ -2,7 +2,6 @@ import { Card } from "@/components/ui";
 
 export const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const REPORT_TYPE_LABELS: Record<string, string> = { bully: "Bully", conflict: "Conflict" };
 const BULLYING_TYPE_LABELS: Record<string, string> = {
   verbal: "Verbal",
   cyber: "Cyber",
@@ -17,8 +16,7 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 // Fixed display order so a missing key still shows as 0 instead of silently
-// vanishing — "no Conflict reports this month" is information, not an omission.
-const REPORT_TYPE_ORDER = ["bully", "conflict"];
+// vanishing — "no Cyber reports this month" is information, not an omission.
 const BULLYING_TYPE_ORDER = ["verbal", "cyber", "physical", "social"];
 const SEVERITY_ORDER = ["critical", "serious", "less_serious", "minor"];
 
@@ -66,14 +64,13 @@ export interface OverviewData {
   resolved: number;
   unresolved: number;
   inProcess: number;
-  byReportType: Record<string, number>;
   byBullyingType: Record<string, number>;
   bySeverity: Record<string, number>;
 }
 
 // Shared by the live Monthly Overview and the frozen Annual Report, so both
-// read identically. byBullyingType is Bully reports only (Conflict reports
-// have no bullying types), which the card says outright.
+// read identically. Conflict reports can no longer be filed, so there's no
+// Bully-vs-Conflict split to show (annual_reports still stores one).
 export function OverviewBreakdown({ data }: { data: OverviewData }) {
   return (
     <div className="space-y-4">
@@ -95,14 +92,8 @@ export function OverviewBreakdown({ data }: { data: OverviewData }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <BreakdownCard
-          title="Bully vs. Conflict"
-          order={REPORT_TYPE_ORDER}
-          labels={REPORT_TYPE_LABELS}
-          counts={data.byReportType}
-        />
-        <BreakdownCard
           title="By bullying type"
-          note="Bully reports only. A report with several types counts once under each."
+          note="A report with several types counts once under each."
           order={BULLYING_TYPE_ORDER}
           labels={BULLYING_TYPE_LABELS}
           counts={data.byBullyingType}
