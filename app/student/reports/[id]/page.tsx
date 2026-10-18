@@ -80,6 +80,7 @@ export default async function StudentReportStatusPage({
             reportId={report.id}
             reportCreatedAt={report.created_at}
             initialProgress={stageProgress}
+            severity={report.severity}
           />
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">

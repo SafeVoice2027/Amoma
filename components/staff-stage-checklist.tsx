@@ -9,7 +9,7 @@ import type { ReportStage, ReportStageProgress } from "@/types/database";
 // Case Filed -> Scheduling -> Investigation & Counseling -> Case Closed.
 // See supabase/migrations/0012_reorder_stage_flow.sql.
 const CHECKLIST_ITEMS: { stage: ReportStage; label: string; hint: string }[] = [
-  { stage: "case_filed", label: "Case Assessment & Counselor Advising", hint: "within 24 hours" },
+  { stage: "case_filed", label: "Case Assessment & Teacher Tagging", hint: "within 24 hours" },
   { stage: "meeting", label: "Scheduling", hint: "within 48 hours" },
   { stage: "investigation", label: "Investigation & Counseling", hint: "within 3 school days" },
   { stage: "case_closed", label: "Case Resolved", hint: "" },

@@ -136,6 +136,7 @@ export function ReportThread({
               reportId={report.id}
               reportCreatedAt={report.created_at}
               initialProgress={report.stageProgress}
+              severity={report.severity}
             />
           </div>
         )}

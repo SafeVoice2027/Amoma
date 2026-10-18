@@ -5,40 +5,52 @@ import Link from "next/link";
 import { FileSearch, MessageCircleMore, Calendar, Gavel, Cog, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { STAGE_ORDER, STAGE_TITLES, nextUpdateEstimate } from "@/lib/reports/stage-labels";
-import type { ReportStage, ReportStageProgress } from "@/types/database";
+import type { ReportStage, ReportStageProgress, SeverityLevel } from "@/types/database";
 
-// Case Filed -> Scheduling -> Investigation & Counseling -> Case Closed.
+// Case Assessment -> Scheduling -> Investigation & Counseling -> Case Closed.
 // See supabase/migrations/0012_reorder_stage_flow.sql.
-const STAGES: { id: ReportStage; icon: LucideIcon; title: string; subheading: string }[] = [
-  {
-    id: "case_filed",
-    icon: FileSearch,
-    title: STAGE_TITLES.case_filed,
-    subheading:
-      "Your case is already filed. Within 24 hours of receiving this report, the staff/teacher will assess the details before forwarding it to the counselor. Note: If the staff/teacher can handle the matter, there would be no need to proceed to advising a counselor.",
-  },
-  {
-    id: "meeting",
-    icon: Calendar,
-    title: STAGE_TITLES.meeting,
-    subheading:
-      "The team handling your case is planning next steps and assigning who will follow up with you. This takes place within 48 hours.",
-  },
-  {
-    id: "investigation",
-    icon: MessageCircleMore,
-    title: STAGE_TITLES.investigation,
-    subheading:
-      "A formal investigation is underway based on the information you have given, alongside counseling and support for anyone affected. This process will involve collecting evidence and interviewing witnesses (if there are any), and will take a maximum of 3 school days.",
-  },
-  {
-    id: "case_closed",
-    icon: Gavel,
-    title: STAGE_TITLES.case_closed,
-    subheading:
-      "Your report has been acted on. Please report to Amoma again if any similar situations happen again.",
-  },
+const STAGES: { id: ReportStage; icon: LucideIcon; title: string }[] = [
+  { id: "case_filed", icon: FileSearch, title: STAGE_TITLES.case_filed },
+  { id: "meeting", icon: Calendar, title: STAGE_TITLES.meeting },
+  { id: "investigation", icon: MessageCircleMore, title: STAGE_TITLES.investigation },
+  { id: "case_closed", icon: Gavel, title: STAGE_TITLES.case_closed },
 ];
+
+const INVESTIGATION_TAIL =
+  "This process will involve collecting evidence and interviewing witnesses (if there are any), and will take a maximum of 3 school days.";
+
+// Who handles a case depends on how serious it is (DO 006 s. 2026 levels):
+// Minor acts are guided and handled by the adviser; Serious acts go through
+// formal interventions by the Guidance Counselor and Learner Formation
+// Officer; Critical ones are led by the school head with those officers and
+// coordinated with law enforcement. A report with no severity yet (still
+// pending AI review) gets the generic wording.
+function subheadingFor(stage: ReportStage, severity: SeverityLevel | null): string {
+  const level = severity === "serious" || severity === "critical" ? severity : severity ? "minor" : null;
+
+  switch (stage) {
+    case "case_filed":
+      return "Your case is already filed. Within 24 hours of receiving this report, an Admin (Guidance Counselor, Principal, Prefect of Discipline, Child-Friendly Officer, or Learner Formation Officer) will assess the details before assigning a teacher to handle it.";
+    case "meeting":
+      if (level === "minor")
+        return "Your adviser is guiding and handling your case. They are planning next steps and scheduling any meetings needed. This takes place within 48 hours.";
+      if (level === "serious")
+        return "The Guidance Counselor and the Learner Formation Officer are planning the formal interventions for your case, together with the assigned teacher, and scheduling any meetings needed. This takes place within 48 hours.";
+      if (level === "critical")
+        return "The school head, together with the Guidance Counselor and the Learner Formation Officer, is planning the response to your case and scheduling any meetings needed. This takes place within 48 hours.";
+      return "The teacher assigned to your case is planning next steps and scheduling any meetings needed. This takes place within 48 hours.";
+    case "investigation":
+      if (level === "minor")
+        return `Your adviser is guiding and handling your case based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
+      if (level === "serious")
+        return `The Guidance Counselor and the Learner Formation Officer are carrying out a formal investigation based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
+      if (level === "critical")
+        return `The school head is leading the investigation, together with the Guidance Counselor and the Learner Formation Officer, and will coordinate with law enforcement where needed. Counseling and support are being arranged for anyone affected. ${INVESTIGATION_TAIL}`;
+      return `The Admin and the assigned teacher are carrying out a formal investigation based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
+    case "case_closed":
+      return "Your report has been acted on. Please report to Amoma again if any similar situations happen again.";
+  }
+}
 
 // The moving highlight is a soft-edged "comet" (transparent → brand color →
 // transparent), not a flat pill — a solid block sweeping across a short
@@ -71,11 +83,13 @@ export function ReportStageTracker({
   reportId,
   reportCreatedAt,
   initialProgress,
+  severity = null,
 }: {
   role: "student" | "staff" | "admin";
   reportId: string;
   reportCreatedAt: string;
   initialProgress: ReportStageProgress;
+  severity?: SeverityLevel | null;
 }) {
   const [progress, setProgress] = useState(initialProgress);
 
@@ -193,7 +207,7 @@ export function ReportStageTracker({
 
       <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-sm">
         <p className="font-medium">{activeStage.title}</p>
-        <p className="mt-1 text-[var(--color-text-muted)]">{activeStage.subheading}</p>
+        <p className="mt-1 text-[var(--color-text-muted)]">{subheadingFor(activeStage.id, severity)}</p>
         {estimate && (
           <p className="mt-2 text-[var(--color-text-muted)]">
             Next update estimate:{" "}

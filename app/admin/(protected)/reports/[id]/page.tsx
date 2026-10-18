@@ -6,7 +6,6 @@ import { FollowupPanel } from "@/components/followup-panel";
 import { StatusSelect } from "@/components/status-select";
 import { RevealIdentity } from "@/components/reveal-identity";
 import { CATEGORY_LABELS, CATEGORY_STYLES } from "@/components/case-overview-table";
-import { ReportStageTracker } from "@/components/report-stage-tracker";
 import { StaffStageChecklist } from "@/components/staff-stage-checklist";
 import { TagTeacherPanel } from "@/components/tag-teacher-panel";
 import { addFollowup, revealIdentity, tagTeacher, updateReportStatus } from "@/app/admin/actions";
@@ -286,24 +285,10 @@ export default async function AdminReportDetailPage({
         </div>
       </div>
 
-      {/* Admin has read-only oversight of the checklist (the cog icon);
-          Handlers are the ones who actually drive it (see
-          supabase/migrations/0010_handlers_and_teacher_tags.sql) — Handler
-          gets the interactive version here since /staff/reports/[id] is no
-          longer where they land for this. */}
-      {stageProgress && isAdmin && (
-        <Card className="mb-6">
-          <h2 className="mb-4 text-lg font-semibold">Case status</h2>
-          <ReportStageTracker
-            role="admin"
-            reportId={report.id}
-            reportCreatedAt={report.created_at}
-            initialProgress={stageProgress}
-          />
-        </Card>
-      )}
-
-      {stageProgress && !isAdmin && (
+      {/* Admin (Handler), Developer and a tagged Teacher all drive the same
+          interactive checklist (see
+          supabase/migrations/0024_all_roles_drive_case_checklist.sql). */}
+      {stageProgress && (
         <div className="mb-6">
           <StaffStageChecklist
             reportId={id}
