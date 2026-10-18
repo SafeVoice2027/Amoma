@@ -4,7 +4,7 @@ import { Card } from "@/components/ui";
 
 export function ConfirmationScreen({ urgent, caseId }: { urgent: boolean; caseId: string }) {
   const steps = [
-    "Your counselor will review your report within 48 hours.",
+    "Your counselor will review your report within 24 hours.",
     "You'll see the status update to 'Under Review' in My Reports.",
     "Your counselor won't call you to the office or reach out by name — any follow-up happens right here, anonymously, in your report's thread.",
     urgent
