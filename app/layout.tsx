@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import { RegisterServiceWorker } from "@/components/register-service-worker";
+import { AppUpdater } from "@/components/app-updater";
 import "./globals.css";
 
 const inter = Inter({
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </Script>
         {children}
         <RegisterServiceWorker />
+        <AppUpdater />
       </body>
     </html>
   );

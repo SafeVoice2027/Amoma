@@ -22,7 +22,12 @@ function isCacheableStaticAsset(url) {
   return url.origin === self.location.origin && url.pathname.startsWith("/_next/static/");
 }
 
+// Local development isn't content-hashed (the same URL serves changing code),
+// so cache-first would keep showing old code there — never cache on localhost.
+const IS_LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
+
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCAL) return;
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || !isCacheableStaticAsset(url)) return;
 
