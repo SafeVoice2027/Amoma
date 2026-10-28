@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button, Card } from "@/components/ui";
-import type { UserRole } from "@/types/database";
+import type { AdminPosition, UserRole } from "@/types/database";
 
 interface AccountProfile {
   id: string;
@@ -12,6 +12,7 @@ interface AccountProfile {
   deped_email: string | null;
   is_handler: boolean;
   employee_number: string | null;
+  admin_position: AdminPosition | null;
 }
 
 export function AccountRow({
@@ -19,11 +20,13 @@ export function AccountRow({
   onChangePassword,
   onToggleHandler,
   onSetEmployeeNumber,
+  onSetAdminPosition,
 }: {
   profile: AccountProfile;
   onChangePassword: (profileId: string, newPassword: string) => Promise<{ error: string | null }>;
   onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
   onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
+  onSetAdminPosition: (profileId: string, position: AdminPosition) => Promise<{ error: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -45,6 +48,14 @@ export function AccountRow({
     const next = !profile.is_handler;
     startHandlerTransition(async () => {
       const result = await onToggleHandler(profile.id, next);
+      if (result.error) setHandlerError(result.error);
+    });
+  }
+
+  function changePosition(position: AdminPosition) {
+    setHandlerError(null);
+    startHandlerTransition(async () => {
+      const result = await onSetAdminPosition(profile.id, position);
       if (result.error) setHandlerError(result.error);
     });
   }
@@ -123,6 +134,23 @@ export function AccountRow({
             />
             Admin — can update the Report Status checklist
           </label>
+          {profile.is_handler && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Admin position</label>
+              <select
+                value={profile.admin_position ?? ""}
+                disabled={handlerPending}
+                onChange={(e) => changePosition(e.target.value as AdminPosition)}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-brand)]"
+              >
+                <option value="" disabled>
+                  Select a position
+                </option>
+                <option value="learner_formation_officer">Learner Formation Officer — assesses and handles cases</option>
+                <option value="school_head">School Head — views cases, leads Complex cases</option>
+              </select>
+            </div>
+          )}
           {handlerError && <p className="text-sm text-[var(--color-danger-600)]">{handlerError}</p>}
 
           <div>

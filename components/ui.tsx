@@ -61,24 +61,34 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle?: stri
 }
 
 const severityStyles: Record<SeverityLevel, string> = {
+  precursor: "bg-neutral-200 text-neutral-700",
   minor: "bg-primary-100 text-primary-800",
   less_serious: "bg-accent-100 text-accent-800",
   serious: "bg-danger-100 text-danger-700",
-  critical: "bg-danger-600 text-white",
+  complex: "bg-danger-600 text-white",
 };
 
 const severityLabels: Record<SeverityLevel, string> = {
+  precursor: "Precursor",
   minor: "Minor",
   less_serious: "Less serious",
   serious: "Serious",
-  critical: "Critical",
+  complex: "Complex",
 };
 
-export function SeverityBadge({ severity }: { severity: SeverityLevel | null }) {
+// `labels` lets a translated screen (the student app) supply its own text
+// for each level and the pending state; everything else shows the English default.
+export function SeverityBadge({
+  severity,
+  labels,
+}: {
+  severity: SeverityLevel | null;
+  labels?: Partial<Record<SeverityLevel | "pending", string>>;
+}) {
   if (!severity) {
     return (
       <span className="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-sm font-medium text-neutral-700">
-        Pending review
+        {labels?.pending ?? "Pending review"}
       </span>
     );
   }
@@ -86,7 +96,7 @@ export function SeverityBadge({ severity }: { severity: SeverityLevel | null }) 
     <span
       className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${severityStyles[severity]}`}
     >
-      {severityLabels[severity]}
+      {labels?.[severity] ?? severityLabels[severity]}
     </span>
   );
 }

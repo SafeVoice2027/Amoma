@@ -3,15 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
+import { EvidenceField } from "@/components/evidence-field";
 import { StatusSelect } from "@/components/status-select";
 import { RevealIdentity } from "@/components/reveal-identity";
 import { CATEGORY_LABELS, CATEGORY_STYLES } from "@/components/case-overview-table";
 import { StaffStageChecklist } from "@/components/staff-stage-checklist";
-import { TagTeacherPanel } from "@/components/tag-teacher-panel";
-import { addFollowup, revealIdentity, tagTeacher, updateReportStatus } from "@/app/admin/actions";
+import { addFollowup, revealIdentity, updateReportStatus } from "@/app/admin/actions";
 import { advanceReportStage, revertReportStage } from "@/lib/reports/stage-progress";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
-import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
+import { BULLYING_TYPE_LABELS, describeTypeDetails, formatSetting } from "@/lib/reports/bullying-types";
 import type {
   AiAssessment,
   Profile,
@@ -26,13 +26,6 @@ import type {
 // Must match RECENT_REPORTER_WINDOW_DAYS in app/admin/page.tsx, so the count
 // shown here agrees with the one shown on the Case Overview table.
 const RECENT_REPORTER_WINDOW_DAYS = 7;
-
-const EVIDENCE_TYPE_LABELS: Record<string, string> = {
-  video: "Video",
-  screen_recording: "Screen recording",
-  screenshot: "Screenshot",
-  photo: "Photo",
-};
 
 function recentWindowStartIso(): string {
   return new Date(Date.now() - RECENT_REPORTER_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -164,36 +157,6 @@ export default async function AdminReportDetailPage({
     .maybeSingle<ReportStageProgress>();
   if (stageError) console.error("[admin report detail] stage progress query failed", stageError);
 
-  // Tagging is Handler-only, not Developer (see
-  // supabase/migrations/0018_handler_tags_teacher_not_developer.sql) — skip
-  // the query entirely for a Developer viewer, who never sees the panel below.
-  let teachers: Pick<Profile, "id" | "full_name">[] | null = null;
-  if (!isAdmin) {
-    // is_handler doesn't exist until
-    // supabase/migrations/0010_handlers_and_teacher_tags.sql has been run —
-    // filtering on it fails the whole query. Fall back to every approved
-    // staff member rather than hiding the Tag Teacher list entirely.
-    let teachersResult = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "staff")
-      .eq("is_handler", false)
-      .eq("status", "approved")
-      .order("full_name", { ascending: true })
-      .returns<Pick<Profile, "id" | "full_name">[]>();
-    if (teachersResult.error) {
-      console.error("[admin report detail] teachers query with is_handler failed, retrying without it", teachersResult.error);
-      teachersResult = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("role", "staff")
-        .eq("status", "approved")
-        .order("full_name", { ascending: true })
-        .returns<Pick<Profile, "id" | "full_name">[]>();
-    }
-    teachers = teachersResult.data;
-  }
-
   const authorIds = [...new Set((followups ?? []).map((f) => f.author_id))];
   const { data: authorProfiles } = authorIds.length
     ? await supabase
@@ -227,11 +190,6 @@ export default async function AdminReportDetailPage({
   async function reveal(reason: string, notes: string) {
     "use server";
     return revealIdentity(id, reason, notes);
-  }
-
-  async function tag(teacherId: string, note: string) {
-    "use server";
-    return tagTeacher(id, teacherId, note);
   }
 
   async function advanceStage() {
@@ -285,9 +243,8 @@ export default async function AdminReportDetailPage({
         </div>
       </div>
 
-      {/* Admin (Handler), Developer and a tagged Teacher all drive the same
-          interactive checklist (see
-          supabase/migrations/0024_all_roles_drive_case_checklist.sql). */}
+      {/* Admin (Learner Formation Officer / School Head) and Developer drive the
+          same interactive checklist. */}
       {stageProgress && (
         <div className="mb-6">
           <StaffStageChecklist
@@ -311,12 +268,23 @@ export default async function AdminReportDetailPage({
                     label="Type of bullying"
                     value={bully.bullying_types.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") || "—"}
                   />
+                  {describeTypeDetails(bully.type_details).map((d) => (
+                    <Field key={d.type} label={`${d.label} — ${d.prompt}`} value={d.answer} />
+                  ))}
                   <Field label="Victim" value={bully.victim_grade_section ?? "—"} />
                   <Field
                     label="Oppressor"
                     value={[bully.oppressor_grade_section, bully.oppressor_name].filter(Boolean).join(" · ") || "—"}
                   />
-                  <Field label="Setting" value={bully.setting ?? "—"} />
+                  {bully.incident_date || bully.incident_time || bully.incident_place ? (
+                    <>
+                      <Field label="Date" value={formatSetting(bully.incident_date ?? "", "", "") || "—"} />
+                      <Field label="Time" value={formatSetting("", bully.incident_time ?? "", "") || "—"} />
+                      <Field label="Place" value={bully.incident_place ?? "—"} />
+                    </>
+                  ) : (
+                    <Field label="Setting" value={bully.setting ?? "—"} />
+                  )}
                 </>
               )}
               {conflict && (
@@ -331,15 +299,9 @@ export default async function AdminReportDetailPage({
                   <Field label="Setting" value={conflict.setting ?? "—"} />
                 </>
               )}
+              <EvidenceField items={evidenceLinks} />
             </dl>
           </Card>
-
-          {!isAdmin && (
-            <TagTeacherPanel
-              teachers={(teachers ?? []).map((t) => ({ id: t.id, fullName: t.full_name ?? "(no name on file)" }))}
-              tagTeacher={tag}
-            />
-          )}
 
           {assessment && (
             <Card>
@@ -348,37 +310,7 @@ export default async function AdminReportDetailPage({
                 <Field label="Report content" value={report.description ?? "—"} />
                 <Field label="People involved" value={peopleInvolved} />
                 <Field label="Setting" value={settingValue} />
-                <div>
-                  <dt className="text-[var(--color-text-muted)]">Evidence</dt>
-                  <dd className="mt-0.5">
-                    {evidenceLinks.length === 0 ? (
-                      "—"
-                    ) : (
-                      <ul className="space-y-1">
-                        {evidenceLinks.map((e) => (
-                          <li key={e.id}>
-                            {e.url ? (
-                              <a
-                                href={e.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[var(--color-brand)] hover:underline"
-                              >
-                                {EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}
-                              </a>
-                            ) : (
-                              <span>{EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}</span>
-                            )}
-                            <span className="text-[var(--color-text-muted)]">
-                              {" "}
-                              · {new Date(e.uploaded_at).toLocaleDateString()}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </dd>
-                </div>
+                <EvidenceField items={evidenceLinks} />
               </dl>
 
               <div className="mt-4 border-t border-[var(--color-border)] pt-4">

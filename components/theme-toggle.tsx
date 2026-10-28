@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import { Sun, Moon, Monitor } from "lucide-react";
+import { useT } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/translate";
 
 type Theme = "light" | "dark" | "system";
 
@@ -36,18 +38,19 @@ function setTheme(theme: Theme) {
   listeners.forEach((l) => l());
 }
 
-const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
+const OPTIONS: { value: Theme; label: MessageKey; icon: typeof Sun }[] = [
+  { value: "light", label: "settings.light", icon: Sun },
+  { value: "dark", label: "settings.dark", icon: Moon },
+  { value: "system", label: "settings.system", icon: Monitor },
 ];
 
 export function ThemeToggle() {
+  const { t } = useT();
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   return (
     <div>
-      <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">Appearance</p>
+      <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">{t("settings.appearance")}</p>
       <div className="flex gap-1 rounded-xl bg-[var(--color-background)] p-1">
         {OPTIONS.map((opt) => {
           const Icon = opt.icon;
@@ -65,7 +68,7 @@ export function ThemeToggle() {
               }`}
             >
               <Icon size={16} />
-              {opt.label}
+              {t(opt.label)}
             </button>
           );
         })}

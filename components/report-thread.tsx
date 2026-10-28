@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button, Card, SeverityBadge } from "@/components/ui";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
+import { useT } from "@/components/i18n-provider";
+import { severityLabels } from "@/lib/i18n/labels";
 import type {
   ReportFollowup,
   ReportStageProgress,
@@ -29,12 +31,6 @@ const STUDENT_STATUS_STYLES: Record<ReportStatus, string> = {
   resolved: "bg-[var(--color-neutral-200)] text-[var(--color-neutral-700)]",
 };
 
-const STUDENT_STATUS_LABELS: Record<ReportStatus, string> = {
-  unresolved: "Under Review",
-  in_process: "In Progress",
-  resolved: "Closed",
-};
-
 export function ReportThread({
   report,
   caseId,
@@ -48,6 +44,7 @@ export function ReportThread({
   sendMessage: (reportId: string, message: string) => Promise<void>;
   autoOpen?: boolean;
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(autoOpen);
   const [statusOpen, setStatusOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -87,7 +84,7 @@ export function ReportThread({
                     : "bg-[var(--color-accent-100)] text-[var(--color-accent-800)]"
                 }`}
               >
-                {report.type === "bully" ? "Bully" : "Conflict"}
+                {report.type === "bully" ? t("thread.bullying") : t("thread.conflict")}
               </span>
               <span className="font-semibold">{caseId}</span>
             </div>
@@ -104,9 +101,9 @@ export function ReportThread({
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${STUDENT_STATUS_STYLES[report.status]}`}
             >
-              {STUDENT_STATUS_LABELS[report.status]}
+              {t(`status.${report.status}`)}
             </span>
-            <SeverityBadge severity={report.severity} />
+            <SeverityBadge severity={report.severity} labels={severityLabels(t)} />
           </div>
         </div>
 
@@ -116,7 +113,7 @@ export function ReportThread({
             onClick={() => setOpen((o) => !o)}
             className="text-sm font-medium text-[var(--color-brand)]"
           >
-            {open ? "Hide" : "View"} follow-up ({report.followups.length})
+            {open ? t("thread.hide") : t("thread.view")} {t("thread.followUp", { n: report.followups.length })}
           </button>
           {report.stageProgress && (
             <button
@@ -124,7 +121,7 @@ export function ReportThread({
               onClick={() => setStatusOpen((o) => !o)}
               className="text-sm font-medium text-[var(--color-brand)]"
             >
-              {statusOpen ? "Hide" : "View"} report status
+              {statusOpen ? t("thread.hide") : t("thread.view")} {t("thread.reportStatus")}
             </button>
           )}
         </div>
@@ -144,11 +141,11 @@ export function ReportThread({
 
       {open && (
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Follow-up thread</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("thread.title")}</h2>
           <div className="space-y-3">
             {report.followups.length === 0 && (
               <p className="text-sm text-[var(--color-text-muted)]">
-                No messages yet. A staff member will follow up here once your report is reviewed.
+                {t("thread.empty")}
               </p>
             )}
             {report.followups.map((f) => (
@@ -177,11 +174,11 @@ export function ReportThread({
             <input
               ref={inputRef}
               name="message"
-              placeholder="Send a message..."
+              placeholder={t("thread.placeholder")}
               className="flex-1 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-brand)]"
             />
             <Button type="submit" disabled={pending} className="min-h-0 px-4 py-2 text-sm">
-              Send
+              {t("common.send")}
             </Button>
           </form>
         </Card>

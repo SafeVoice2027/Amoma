@@ -8,16 +8,27 @@ export type UserRole = "student" | "staff" | "admin";
 export type AccountStatus = "pending" | "approved" | "rejected" | "suspended";
 export type ReportType = "bully" | "conflict";
 export type ReportStatus = "unresolved" | "in_process" | "resolved";
-export type SeverityLevel = "minor" | "less_serious" | "serious" | "critical";
+// "precursor" = precursor to bullying (DepEd Memorandum 090, s. 2025), handled
+// by teachers. "complex" was "critical" before
+// supabase/migrations/0027_rename_critical_to_complex.sql. See
+// supabase/migrations/0025_report_form_expansion.sql.
+export type SeverityLevel = "precursor" | "minor" | "less_serious" | "serious" | "complex";
 // Bully reports are self-classified by the student on Page 2 of the report
 // flow; conflict reports are tagged 'conflict' directly at submission —
 // see supabase/migrations/0002_add_report_category.sql. A bully report can
 // select more than one BullyingType (see report_bully_details.bullying_types
 // below) — `reports.category` holds just the first-selected type, kept for
 // the existing single-value category filter/badge UI.
-export type ReportCategory = "social" | "cyber" | "physical" | "verbal" | "conflict";
+export type ReportCategory = "social" | "cyber" | "physical" | "verbal" | "emotional" | "gender_based" | "conflict";
 // See supabase/migrations/0009_consolidated_report_fields.sql.
-export type BullyingType = "social" | "cyber" | "physical" | "verbal";
+export type BullyingType = "social" | "cyber" | "physical" | "verbal" | "emotional" | "gender_based";
+// Answers to the follow-up question each selected type shows (see
+// lib/reports/bullying-types.ts), keyed by type.
+export type BullyingTypeDetails = Partial<Record<BullyingType, { choices: string[]; other?: string }>>;
+// Which Admin position an is_handler profile holds. Only the Learner
+// Formation Officer tags teachers — see
+// supabase/migrations/0026_admin_position_lfo_tags.sql.
+export type AdminPosition = "learner_formation_officer" | "school_head";
 export type NotificationChannel = "push" | "sms" | "email";
 export type NotificationUrgency = "normal" | "high";
 // See supabase/migrations/0003_add_bug_reports.sql.
@@ -47,6 +58,10 @@ export interface Profile {
   // Teacher's login identifier in place of a DepEd email.
   is_handler: boolean;
   employee_number: string | null;
+  admin_position: AdminPosition | null;
+  // Student's chosen app language ('en' | 'tl' | 'ceb'); null = never chosen.
+  // See supabase/migrations/0028_profile_language.sql. Absent until it's run.
+  language?: string | null;
 }
 
 export interface Report {
@@ -63,6 +78,9 @@ export interface Report {
   description: string | null;
   created_at: string;
   updated_at: string;
+  // Sequential report number — see StaffReportsView below.
+  case_year?: number | null;
+  case_seq?: number | null;
 }
 
 // visible_reporter_id is `reporter_id` when the report isn't anonymous and
@@ -83,6 +101,10 @@ export interface StaffReportsView {
   created_at: string;
   updated_at: string;
   visible_reporter_id: string | null;
+  // Sequential report number (AM-<case_year>-<case_seq>) — see
+  // supabase/migrations/0030_sequential_case_numbers.sql. Absent until it runs.
+  case_year?: number | null;
+  case_seq?: number | null;
 }
 
 export interface ReportBullyDetails {
@@ -92,6 +114,10 @@ export interface ReportBullyDetails {
   oppressor_grade_section: string | null;
   oppressor_name: string | null;
   setting: string | null;
+  incident_date: string | null;
+  incident_time: string | null;
+  incident_place: string | null;
+  type_details: BullyingTypeDetails;
 }
 
 export interface ReportConflictDetails {
@@ -227,4 +253,6 @@ export interface ReportTypeFile {
   severity: SeverityLevel | null;
   created_at: string;
   school_id: string | null;
+  case_year?: number | null;
+  case_seq?: number | null;
 }

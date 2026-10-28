@@ -4,10 +4,10 @@ import { Card } from "@/components/ui";
 export const SUPPORT_EMAIL = "safe.voicer@gmail.com";
 export const SUPPORT_PHONE = "09940487218";
 
-export function ContactUsCard() {
+export function ContactUsCard({ title = "Contact us" }: { title?: string }) {
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Contact us</h2>
+      <h2 className="text-lg font-semibold">{title}</h2>
       <div className="mt-4 space-y-3">
         <a
           href={`mailto:${SUPPORT_EMAIL}`}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Bell } from "lucide-react";
+import { useT } from "@/components/i18n-provider";
 
 export interface NotificationItem {
   id: string;
@@ -21,6 +22,7 @@ export function NotificationBell({
   unreadCount: number;
   markAllRead: () => Promise<void>;
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [, startTransition] = useTransition();
@@ -31,7 +33,7 @@ export function NotificationBell({
     <div className="relative">
       <button
         type="button"
-        aria-label="Notifications"
+        aria-label={t("bell.notifications")}
         onClick={() => {
           setOpen((o) => !o);
           if (showDot) {
@@ -49,9 +51,9 @@ export function NotificationBell({
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-12 z-20 w-72 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-lg">
-            <p className="px-2 py-1 text-sm font-semibold">Notifications</p>
+            <p className="px-2 py-1 text-sm font-semibold">{t("bell.notifications")}</p>
             {items.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-[var(--color-text-muted)]">No notifications yet.</p>
+              <p className="px-2 py-3 text-sm text-[var(--color-text-muted)]">{t("bell.noNotifications")}</p>
             ) : (
               <div className="max-h-80 space-y-1 overflow-y-auto">
                 {items.map((item) => (
@@ -67,7 +69,7 @@ export function NotificationBell({
                     className="block rounded-xl px-2 py-2 text-left hover:bg-[var(--color-background)]"
                   >
                     <p className="text-sm font-medium">
-                      {item.reportType === "bully" ? "Bully" : "Conflict"} · {item.caseId}
+                      {item.reportType === "bully" ? t("thread.bullying") : t("thread.conflict")} · {item.caseId}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-[var(--color-text-muted)]">{item.preview}</p>
                     <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">

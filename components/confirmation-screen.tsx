@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Eye, Hash, Home, ArrowRight } from "lucide-react";
+
 import { Card } from "@/components/ui";
+import { useT } from "@/components/i18n-provider";
 
 export function ConfirmationScreen({ urgent, caseId }: { urgent: boolean; caseId: string }) {
-  const steps = [
-    "Your counselor will review your report within 24 hours.",
-    "You'll see the status update to 'Under Review' in My Reports.",
-    "Your counselor won't call you to the office or reach out by name — any follow-up happens right here, anonymously, in your report's thread.",
-    urgent
-      ? "If needed, the counselor may take action without revealing your identity."
-      : "Your counselor may take action without revealing your identity.",
-  ];
+  const { t } = useT();
+  const steps = [t("cf.s1"), t("cf.s2"), t("cf.s3"), urgent ? t("cf.s4urgent") : t("cf.s4")];
 
   return (
     <div className="mx-auto max-w-xl">
@@ -26,29 +22,30 @@ export function ConfirmationScreen({ urgent, caseId }: { urgent: boolean; caseId
             <CheckCircle2 className="h-7 w-7 text-white" strokeWidth={2} />
           )}
         </div>
-        <h1 className="text-xl font-semibold">Report Submitted{urgent ? " — Urgent" : ""}</h1>
+        <h1 className="text-xl font-semibold">
+          {t("cf.submitted")}
+          {urgent ? t("cf.urgentSuffix") : ""}
+        </h1>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          {urgent
-            ? "Your counselor has been notified immediately. Crisis resources have been sent to you."
-            : "Thank you for speaking up. Your report is confidential and being reviewed."}
+          {urgent ? t("cf.subUrgent") : t("cf.sub")}
         </p>
       </div>
 
       <div className="rounded-2xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] p-5 text-center">
         <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--color-primary-800)]">
           <Hash size={14} />
-          Your Case ID
+          {t("cf.number")}
         </div>
         <p className="mt-1 text-2xl font-bold tracking-wide text-[var(--color-primary-800)]">{caseId}</p>
         <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--color-primary-800)_75%,transparent)]">
-          Use this ID to check the status of your report. No one can identify you from this ID.
+          {t("cf.numberNote")}
         </p>
       </div>
 
       <Card className="mt-4 text-left">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <Eye size={16} />
-          What happens next
+          {t("cf.next")}
         </div>
         <ol className="space-y-3">
           {steps.map((text, i) => (
@@ -72,9 +69,9 @@ export function ConfirmationScreen({ urgent, caseId }: { urgent: boolean; caseId
               <Home size={20} />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-[var(--color-accent-800)]">Back to Home</h2>
+              <h2 className="font-semibold text-[var(--color-accent-800)]">{t("cf.home")}</h2>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                Return home — you can check on this report anytime from My Reports.
+                {t("cf.homeSub")}
               </p>
             </div>
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-500)] text-white">

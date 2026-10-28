@@ -3,12 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { FollowupPanel } from "@/components/followup-panel";
+import { EvidenceField } from "@/components/evidence-field";
 import { StatusSelect } from "@/components/status-select";
 import { StaffStageChecklist } from "@/components/staff-stage-checklist";
 import { addFollowup, updateReportStatus } from "@/app/staff/actions";
 import { advanceReportStage, revertReportStage } from "@/lib/reports/stage-progress";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
-import { BULLYING_TYPE_LABELS } from "@/lib/reports/bullying-types";
+import { BULLYING_TYPE_LABELS, describeTypeDetails, formatSetting } from "@/lib/reports/bullying-types";
 import type {
   AiAssessment,
   Profile,
@@ -19,13 +20,6 @@ import type {
   ReportStageProgress,
   StaffReportsView,
 } from "@/types/database";
-
-const EVIDENCE_TYPE_LABELS: Record<string, string> = {
-  video: "Video",
-  screen_recording: "Screen recording",
-  screenshot: "Screenshot",
-  photo: "Photo",
-};
 
 export default async function StaffReportDetailPage({
   params,
@@ -186,12 +180,23 @@ export default async function StaffReportDetailPage({
                     label="Type of bullying"
                     value={bully.bullying_types.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") || "—"}
                   />
+                  {describeTypeDetails(bully.type_details).map((d) => (
+                    <Field key={d.type} label={`${d.label} — ${d.prompt}`} value={d.answer} />
+                  ))}
                   <Field label="Victim" value={bully.victim_grade_section ?? "—"} />
                   <Field
                     label="Oppressor"
                     value={[bully.oppressor_grade_section, bully.oppressor_name].filter(Boolean).join(" · ") || "—"}
                   />
-                  <Field label="Setting" value={bully.setting ?? "—"} />
+                  {bully.incident_date || bully.incident_time || bully.incident_place ? (
+                    <>
+                      <Field label="Date" value={formatSetting(bully.incident_date ?? "", "", "") || "—"} />
+                      <Field label="Time" value={formatSetting("", bully.incident_time ?? "", "") || "—"} />
+                      <Field label="Place" value={bully.incident_place ?? "—"} />
+                    </>
+                  ) : (
+                    <Field label="Setting" value={bully.setting ?? "—"} />
+                  )}
                 </>
               )}
               {conflict && (
@@ -206,6 +211,7 @@ export default async function StaffReportDetailPage({
                   <Field label="Setting" value={conflict.setting ?? "—"} />
                 </>
               )}
+              <EvidenceField items={evidenceLinks} />
             </dl>
           </Card>
 
@@ -216,37 +222,7 @@ export default async function StaffReportDetailPage({
                 <Field label="Report content" value={report.description ?? "—"} />
                 <Field label="People involved" value={peopleInvolved} />
                 <Field label="Setting" value={settingValue} />
-                <div>
-                  <dt className="text-[var(--color-text-muted)]">Evidence</dt>
-                  <dd className="mt-0.5">
-                    {evidenceLinks.length === 0 ? (
-                      "—"
-                    ) : (
-                      <ul className="space-y-1">
-                        {evidenceLinks.map((e) => (
-                          <li key={e.id}>
-                            {e.url ? (
-                              <a
-                                href={e.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[var(--color-brand)] hover:underline"
-                              >
-                                {EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}
-                              </a>
-                            ) : (
-                              <span>{EVIDENCE_TYPE_LABELS[e.file_type] ?? e.file_type}</span>
-                            )}
-                            <span className="text-[var(--color-text-muted)]">
-                              {" "}
-                              · {new Date(e.uploaded_at).toLocaleDateString()}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </dd>
-                </div>
+                <EvidenceField items={evidenceLinks} />
               </dl>
 
               <div className="mt-4 border-t border-[var(--color-border)] pt-4">

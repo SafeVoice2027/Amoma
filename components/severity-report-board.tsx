@@ -12,15 +12,16 @@ export interface SeverityBoardRow {
   createdAt: string;
 }
 
-// Handlers and Admin triage by urgency, not chronology — the Critical /
-// Serious / Minor split used here folds `less_serious` into Minor (it's
+// Handlers and Admin triage by urgency, not chronology — the Complex /
+// Serious / Minor / Precursor split used here folds `less_serious` into Minor (it's
 // already vestigial: lib/ai/severity.ts's classifier never emits it, see
 // the comment there) rather than adding a fourth column for a value the
 // app no longer produces.
-const BUCKETS: { key: "critical" | "serious" | "minor" | "pending"; title: string; match: (s: SeverityLevel | null) => boolean }[] = [
-  { key: "critical", title: "Critical — needs immediate attention", match: (s) => s === "critical" },
+const BUCKETS: { key: "complex" | "serious" | "minor" | "precursor" | "pending"; title: string; match: (s: SeverityLevel | null) => boolean }[] = [
+  { key: "complex", title: "Complex — needs immediate attention", match: (s) => s === "complex" },
   { key: "serious", title: "Serious", match: (s) => s === "serious" },
   { key: "minor", title: "Minor", match: (s) => s === "minor" || s === "less_serious" },
+  { key: "precursor", title: "Precursor to bullying", match: (s) => s === "precursor" },
   { key: "pending", title: "Pending AI review", match: (s) => s === null },
 ];
 

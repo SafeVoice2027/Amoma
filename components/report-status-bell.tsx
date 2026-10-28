@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ListChecks, OctagonAlert } from "lucide-react";
-import { STAGE_TITLES } from "@/lib/reports/stage-labels";
+import { useT } from "@/components/i18n-provider";
 import type { ReportStage } from "@/types/database";
 
 export interface ReportStatusItem {
@@ -16,14 +16,15 @@ export interface ReportStatusItem {
 }
 
 export function ReportStatusBell({ items, unreadCount }: { items: ReportStatusItem[]; unreadCount: number }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
 
   return (
     <div className="relative">
       <button
         type="button"
-        aria-label="Report status"
-        title="Report status"
+        aria-label={t("bell.reportStatus")}
+        title={t("bell.reportStatus")}
         onClick={() => setOpen((o) => !o)}
         className="relative flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-background)]"
       >
@@ -39,9 +40,9 @@ export function ReportStatusBell({ items, unreadCount }: { items: ReportStatusIt
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-12 z-20 w-72 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-lg">
-            <p className="px-2 py-1 text-sm font-semibold">Report status</p>
+            <p className="px-2 py-1 text-sm font-semibold">{t("bell.reportStatus")}</p>
             {items.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-[var(--color-text-muted)]">No status updates yet.</p>
+              <p className="px-2 py-3 text-sm text-[var(--color-text-muted)]">{t("bell.noStatus")}</p>
             ) : (
               <div className="max-h-80 space-y-1 overflow-y-auto">
                 {items.map((item) => (
@@ -56,13 +57,13 @@ export function ReportStatusBell({ items, unreadCount }: { items: ReportStatusIt
                         <OctagonAlert
                           size={14}
                           className="flex-shrink-0 text-[var(--color-danger-500)]"
-                          aria-label="Update"
+                          aria-label={t("bell.update")}
                         />
                       )}
-                      {item.reportType === "bully" ? "Bully" : "Conflict"} · {item.caseId}
+                      {item.reportType === "bully" ? t("thread.bullying") : t("thread.conflict")} · {item.caseId}
                     </p>
                     <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
-                      {item.closed ? "Closed" : STAGE_TITLES[item.currentStage]}
+                      {item.closed ? t("bell.closed") : t(`stage.${item.currentStage}`)}
                     </p>
                   </Link>
                 ))}

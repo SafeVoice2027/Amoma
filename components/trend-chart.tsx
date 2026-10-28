@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui";
+import { useT } from "@/components/i18n-provider";
 
 interface DayBucket {
   label: string;
@@ -15,6 +16,7 @@ interface StatusCounts {
 }
 
 export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCounts: StatusCounts }) {
+  const { t } = useT();
   const [tab, setTab] = useState<"types" | "resolution">("types");
   const maxCount = Math.max(1, ...days.map((d) => d.bully));
   const total = statusCounts.resolved + statusCounts.in_process + statusCounts.unresolved;
@@ -23,7 +25,7 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
 
   return (
     <Card>
-      <h2 className="mb-4 text-lg font-semibold">Trend Insights</h2>
+      <h2 className="mb-4 text-lg font-semibold">{t("trend.title")}</h2>
 
       <div className="mb-4 inline-flex rounded-xl bg-[var(--color-background)] p-1 text-sm">
         <button
@@ -35,7 +37,7 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
               : "text-[var(--color-text-muted)]"
           }`}
         >
-          Report Types
+          {t("trend.types")}
         </button>
         <button
           type="button"
@@ -46,17 +48,17 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
               : "text-[var(--color-text-muted)]"
           }`}
         >
-          Resolution Rate
+          {t("trend.resolution")}
         </button>
       </div>
 
       {tab === "types" ? (
         <div>
           <div className="mb-3 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-            <span>Reports This Month</span>
+            <span>{t("trend.thisMonth")}</span>
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-[var(--color-primary-600)]" />
-              Bully
+              {t("trend.bullying")}
             </span>
           </div>
           <div className="flex h-32 items-end justify-between gap-2">
@@ -76,14 +78,14 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
       ) : (
         <div>
           <p className="text-3xl font-bold text-[var(--color-brand)]">{resolvedPct}%</p>
-          <p className="text-sm text-[var(--color-text-muted)]">of your reports have been resolved</p>
+          <p className="text-sm text-[var(--color-text-muted)]">{t("trend.resolvedPct")}</p>
 
           <div className="mt-5 flex h-32 items-end justify-center gap-6">
             {(
               [
-                { key: "unresolved", label: "Under Review", value: statusCounts.unresolved, color: "var(--color-accent-500)" },
-                { key: "in_process", label: "Ongoing", value: statusCounts.in_process, color: "var(--color-primary-600)" },
-                { key: "resolved", label: "Resolved", value: statusCounts.resolved, color: "#22c55e" },
+                { key: "unresolved", label: t("trend.underReview"), value: statusCounts.unresolved, color: "var(--color-accent-500)" },
+                { key: "in_process", label: t("trend.ongoing"), value: statusCounts.in_process, color: "var(--color-primary-600)" },
+                { key: "resolved", label: t("trend.resolved"), value: statusCounts.resolved, color: "#22c55e" },
               ] as const
             ).map((bucket) => (
               <div key={bucket.key} className="flex flex-col items-center gap-1">
@@ -107,7 +109,7 @@ export function TrendChart({ days, statusCounts }: { days: DayBucket[]; statusCo
 
           {total === 0 && (
             <p className="mt-3 text-center text-xs text-[var(--color-text-muted)]">
-              You haven&apos;t submitted any reports yet.
+              {t("trend.none")}
             </p>
           )}
         </div>

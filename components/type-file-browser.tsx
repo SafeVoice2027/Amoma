@@ -10,14 +10,14 @@ import type { BullyingType, ReportTypeFile } from "@/types/database";
 
 // Folder order is fixed by the Filing System spec (not the report form's
 // chip order, which is Social/Cyber/Physical/Verbal).
-const FOLDER_ORDER: BullyingType[] = ["verbal", "cyber", "physical", "social"];
+const FOLDER_ORDER: BullyingType[] = ["verbal", "cyber", "physical", "social", "emotional", "gender_based"];
 
 // Reused on every staff-facing home (Teacher, Handler/Admin, Developer) —
 // deliberately no role logic here. The rows come from report_type_files,
 // which runs with the caller's own permissions (see
 // supabase/migrations/0021_fix_report_type_files_rls_bypass.sql), so a
 // Handler/Developer gets every folder in full and a Teacher gets only the
-// reports they've been tagged into — an untagged Teacher just sees four
+// reports they've been tagged into — an untagged Teacher just sees six
 // empty folders. A report with several bullying types shows up in each
 // matching folder on purpose; don't de-duplicate across them.
 export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile[]; reportHrefBase: string }) {
@@ -38,7 +38,7 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
         Reports filed by type. A report with more than one type appears in each folder.
       </p>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {FOLDER_ORDER.map((type) => {
           const count = byType.get(type)?.length ?? 0;
           const active = openType === type;
@@ -76,7 +76,7 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
               <Link key={`${row.report_id}-${row.bullying_type}`} href={`${reportHrefBase}/${row.report_id}`}>
                 <Card className="flex items-center justify-between gap-3 transition-shadow hover:shadow-md">
                   <div>
-                    <p className="font-medium">{formatCaseId(row.report_id, row.created_at)}</p>
+                    <p className="font-medium">{formatCaseId(row.report_id, row.created_at, row)}</p>
                     <p className="text-sm text-[var(--color-text-muted)]">
                       {new Date(row.created_at).toLocaleDateString()}
                     </p>

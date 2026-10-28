@@ -5,10 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge } from "@/components/ui";
 import { ReportStageTracker } from "@/components/report-stage-tracker";
-import { formatCaseId } from "@/lib/reports/case-id";
+import { formatReference } from "@/lib/reports/case-id";
+import { getT } from "@/lib/i18n/server";
+import { severityLabels } from "@/lib/i18n/labels";
 import type { Report, ReportStageProgress } from "@/types/database";
 
-type ReportRow = Pick<Report, "id" | "type" | "status" | "severity" | "created_at" | "description">;
+type ReportRow = Pick<Report, "id" | "type" | "status" | "severity" | "created_at" | "description" | "case_year" | "case_seq">;
 
 export default async function StudentReportStatusPage({
   params,
@@ -17,6 +19,7 @@ export default async function StudentReportStatusPage({
 }) {
   const { id } = await params;
   const profile = await requireProfile("student");
+  const { t } = await getT();
   const supabase = await createClient();
 
   // RLS already restricts this to the student's own reports (reporter_id =
@@ -24,7 +27,7 @@ export default async function StudentReportStatusPage({
   // genuinely missing one.
   const { data: report } = await supabase
     .from("reports")
-    .select("id, type, status, severity, created_at, description")
+    .select("id, type, status, severity, created_at, description, case_year, case_seq")
     .eq("id", id)
     .eq("reporter_id", profile.id)
     .maybeSingle<ReportRow>();
@@ -46,7 +49,7 @@ export default async function StudentReportStatusPage({
     if (seenError) console.error("[student report status] mark_report_status_seen failed", seenError);
   }
 
-  const caseId = formatCaseId(report.id, report.created_at);
+  const caseId = formatReference(report.id, report.created_at, report.status, { case: t("ref.case"), incident: t("ref.incident") }, report);
 
   return (
     <div className="mx-auto w-full max-w-xl">
@@ -55,15 +58,20 @@ export default async function StudentReportStatusPage({
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
       >
         <ArrowLeft size={16} />
-        Back
+        {t("common.back")}
       </Link>
 
-      <PageHeader title="Report status" subtitle={`${report.type === "bully" ? "Bully" : "Conflict"} · ${caseId}`} />
+      <PageHeader
+        title={t("status.pageTitle")}
+        subtitle={`${report.type === "bully" ? t("thread.bullying") : t("thread.conflict")} · ${caseId}`}
+      />
 
       <div className="mb-6 flex items-center gap-3">
-        <SeverityBadge severity={report.severity} />
+        <SeverityBadge severity={report.severity} labels={severityLabels(t)} />
         <span className="text-sm text-[var(--color-text-muted)]">
-          Submitted {new Date(report.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          {t("status.submitted", {
+            date: new Date(report.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+          })}
         </span>
       </div>
 
@@ -84,7 +92,7 @@ export default async function StudentReportStatusPage({
           />
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">
-            Status tracking isn&apos;t available for this report yet.
+            {t("status.unavailable")}
           </p>
         )}
       </Card>

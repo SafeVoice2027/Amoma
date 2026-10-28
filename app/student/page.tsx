@@ -7,30 +7,33 @@ import { TrendChart } from "@/components/trend-chart";
 import { NotificationBell, type NotificationItem } from "@/components/notification-bell";
 import { ReportStatusBell, type ReportStatusItem } from "@/components/report-status-bell";
 import { addFollowup, markAllNotificationsRead } from "@/app/student/actions";
-import { formatCaseId } from "@/lib/reports/case-id";
+import { formatReference } from "@/lib/reports/case-id";
 import { fetchNotifications } from "@/lib/notifications";
 import { hasStageUpdate } from "@/lib/reports/stage-labels";
+import { getT } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translate";
 import type { Report, ReportFollowup, ReportStageProgress } from "@/types/database";
 
 type ReportRow = Pick<
   Report,
-  "id" | "type" | "status" | "severity" | "is_anonymous" | "created_at" | "description"
+  "id" | "type" | "status" | "severity" | "is_anonymous" | "created_at" | "description" | "case_year" | "case_seq"
 >;
 
-function greeting(): string {
+function greeting(t: Translate): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return t("greet.morning");
+  if (hour < 18) return t("greet.afternoon");
+  return t("greet.evening");
 }
 
 export default async function StudentHomePage() {
   const profile = await requireProfile("student");
+  const { t } = await getT();
   const supabase = await createClient();
 
   const { data: reports } = await supabase
     .from("reports")
-    .select("id, type, status, severity, is_anonymous, created_at, description")
+    .select("id, type, status, severity, is_anonymous, created_at, description, case_year, case_seq")
     .eq("reporter_id", profile.id)
     .order("created_at", { ascending: false })
     .returns<ReportRow[]>();
@@ -66,7 +69,7 @@ export default async function StudentHomePage() {
   }));
 
   const caseIds = Object.fromEntries(
-    (reports ?? []).map((r) => [r.id, formatCaseId(r.id, r.created_at)]),
+    (reports ?? []).map((r) => [r.id, formatReference(r.id, r.created_at, r.status, { case: t("ref.case"), incident: t("ref.incident") }, r)]),
   );
   const reportTypes = Object.fromEntries((reports ?? []).map((r) => [r.id, r.type]));
 
@@ -95,7 +98,7 @@ export default async function StudentHomePage() {
         reportId: n.report_id,
         caseId: caseIds[n.report_id],
         reportType: reportTypes[n.report_id],
-        preview: latest?.message ?? "Your counselor replied to your report.",
+        preview: latest?.message ?? t("bell.replied"),
         createdAt: n.created_at,
       };
     });
@@ -115,7 +118,7 @@ export default async function StudentHomePage() {
     const rangeEnd = new Date(year, month, endDay, 23, 59, 59, 999);
     const inRange = (d: Date) => d >= rangeStart && d <= rangeEnd;
     return {
-      label: `Wk ${i + 1}`,
+      label: t("trend.week", { n: i + 1 }),
       bully: (reports ?? []).filter((r) => r.type === "bully" && inRange(new Date(r.created_at))).length,
     };
   });
@@ -133,8 +136,8 @@ export default async function StudentHomePage() {
             <User size={18} />
           </span>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)]">{greeting()}</p>
-            <p className="text-sm font-semibold">Anonymous Student</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{greeting(t)}</p>
+            <p className="text-sm font-semibold">{t("student.anonymous")}</p>
           </div>
         </div>
         <div className="flex items-center">
@@ -148,9 +151,9 @@ export default async function StudentHomePage() {
         <img src="/amoma-logo.png" alt="Amoma" className="h-28 w-auto" />
       </div>
 
-      <h1 className="text-center text-lg font-semibold">What would you like to report?</h1>
+      <h1 className="text-center text-lg font-semibold">{t("home.heading")}</h1>
       <p className="mt-1 text-center text-sm text-[var(--color-text-muted)]">
-        Your report is anonymous. We&apos;re here to help.
+        {t("home.sub")}
       </p>
 
       <div className="mt-6 space-y-4">
@@ -163,11 +166,11 @@ export default async function StudentHomePage() {
               <AlertTriangle size={20} />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-[var(--color-primary-800)]">Bully</h2>
+              <h2 className="font-semibold text-[var(--color-primary-800)]">{t("home.bullying.title")}</h2>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                Repeated harmful behavior targeting someone
+                {t("home.bullying.desc")}
               </p>
-              <p className="mt-2 text-sm font-medium text-[var(--color-primary-700)]">Tap to report →</p>
+              <p className="mt-2 text-sm font-medium text-[var(--color-primary-700)]">{t("home.bullying.cta")}</p>
             </div>
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-600)] text-white">
               <ArrowRight size={16} />

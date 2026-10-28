@@ -56,7 +56,7 @@ async function summarizeWithClaude(cases: UnresolvedCase[]): Promise<string> {
 
 function heuristicSummary(cases: UnresolvedCase[]): string {
   const stale = cases.filter((c) => daysOpen(c.createdAt) >= 3 && c.followupCount === 0);
-  const highSeverity = cases.filter((c) => c.severity === "serious" || c.severity === "critical");
+  const highSeverity = cases.filter((c) => c.severity === "serious" || c.severity === "complex");
   const parts: string[] = [];
 
   if (highSeverity.length) {

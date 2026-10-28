@@ -4,18 +4,18 @@ import { useEffect, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 import { Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { STAGE_ORDER, normalizeStage } from "@/lib/reports/stage-labels";
 import type { ReportStage, ReportStageProgress } from "@/types/database";
 
-// Case Filed -> Scheduling -> Investigation & Counseling -> Case Closed.
-// See supabase/migrations/0012_reorder_stage_flow.sql.
+// Case Assessment -> Ongoing Action -> Case Closed.
+// See supabase/migrations/0029_three_step_case_flow.sql.
 const CHECKLIST_ITEMS: { stage: ReportStage; label: string; hint: string }[] = [
-  { stage: "case_filed", label: "Case Assessment & Teacher Tagging", hint: "within 24 hours" },
-  { stage: "meeting", label: "Scheduling", hint: "within 48 hours" },
-  { stage: "investigation", label: "Investigation & Counseling", hint: "within 3 school days" },
+  { stage: "case_filed", label: "Case Assessment", hint: "within 24 hours" },
+  { stage: "investigation", label: "Ongoing Action", hint: "within 5 school days" },
   { stage: "case_closed", label: "Case Resolved", hint: "" },
 ];
 
-const STAGE_ORDER: ReportStage[] = ["case_filed", "meeting", "investigation", "case_closed"];
+const LAST = CHECKLIST_ITEMS.length - 1;
 
 export function StaffStageChecklist({
   reportId,
@@ -58,11 +58,11 @@ export function StaffStageChecklist({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const currentIndex = STAGE_ORDER.indexOf(progress.current_stage);
+  const currentIndex = STAGE_ORDER.indexOf(normalizeStage(progress.current_stage));
   const closed = progress.current_stage === "case_closed" && progress.case_closed_at !== null;
 
   function isChecked(i: number) {
-    return i < currentIndex || (i === 3 && closed);
+    return i < currentIndex || (i === LAST && closed);
   }
 
   function handleCheck(i: number) {

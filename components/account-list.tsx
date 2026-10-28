@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { Card } from "@/components/ui";
 import { AccountRow } from "@/components/account-row";
-import type { UserRole } from "@/types/database";
+import type { AdminPosition, UserRole } from "@/types/database";
 
 interface AccountProfile {
   id: string;
@@ -14,6 +14,7 @@ interface AccountProfile {
   deped_email: string | null;
   is_handler: boolean;
   employee_number: string | null;
+  admin_position: AdminPosition | null;
 }
 
 export function AccountList({
@@ -21,11 +22,13 @@ export function AccountList({
   onChangePassword,
   onToggleHandler,
   onSetEmployeeNumber,
+  onSetAdminPosition,
 }: {
   accounts: AccountProfile[];
   onChangePassword: (profileId: string, newPassword: string) => Promise<{ error: string | null }>;
   onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
   onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
+  onSetAdminPosition: (profileId: string, position: AdminPosition) => Promise<{ error: string | null }>;
 }) {
   const [query, setQuery] = useState("");
 
@@ -63,6 +66,7 @@ export function AccountList({
               onChangePassword={onChangePassword}
               onToggleHandler={onToggleHandler}
               onSetEmployeeNumber={onSetEmployeeNumber}
+              onSetAdminPosition={onSetAdminPosition}
             />
           ))}
         </div>

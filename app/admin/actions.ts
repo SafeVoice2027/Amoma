@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { addFollowup as addFollowupShared } from "@/lib/reports/followups";
 import { getCurrentProfile } from "@/lib/auth";
 import { fetchUrgentAlerts as fetchUrgentAlertsShared, type UrgentAlertsResult } from "@/lib/notifications";
-import type { BugReportStatus, ReportStatus } from "@/types/database";
+import type { AdminPosition, BugReportStatus, ReportStatus } from "@/types/database";
 
 // This whole file is shared by Handler ("Admin", under /admin/*) and the
 // real superuser ("Developer", under /developer/*) — see
@@ -174,44 +174,6 @@ export async function changeUserPassword(
   return { error: null };
 }
 
-// Handler-only (not Developer — see
-// supabase/migrations/0018_handler_tags_teacher_not_developer.sql):
-// tags a Teacher into a report. Distinct from case ownership — a report
-// can be tagged to any number of teachers. Fires a notification the same
-// way addFollowup() does for a reporter reply.
-export async function tagTeacher(
-  reportId: string,
-  teacherId: string,
-  note: string,
-): Promise<{ error: string | null }> {
-  const admin = await getCurrentProfile();
-  if (!admin || !(admin.role === "staff" && admin.is_handler)) return { error: "Not authorized." };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("report_teacher_tags").insert({
-    report_id: reportId,
-    teacher_id: teacherId,
-    tagged_by: admin.id,
-    note: note || null,
-  });
-  if (error) {
-    console.error("[tagTeacher] insert failed", { reportId, teacherId, error });
-    return { error: "Couldn't tag that teacher. Please try again." };
-  }
-
-  const service = createServiceClient();
-  await service.from("notifications").insert({
-    report_id: reportId,
-    recipient_id: teacherId,
-    channel: "push",
-    urgency: "normal",
-    sent_at: new Date().toISOString(),
-  });
-
-  revalidatePath(`/developer/reports/${reportId}`);
-  return { error: null };
-}
-
 // Admin-only toggle, surfaced on the existing Accounts screen rather than a
 // new one — the real Handler identities (Prefect of Discipline / CFLFO)
 // aren't finalized yet, so this stays a flag any Admin can flip once they
@@ -224,9 +186,38 @@ export async function toggleIsHandler(profileId: string, isHandler: boolean): Pr
   const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
   if (!target || target.role !== "staff") return { error: "That account can't be changed here." };
 
-  const { error } = await supabase.from("profiles").update({ is_handler: isHandler }).eq("id", profileId);
+  // Turning Admin on defaults to Learner Formation Officer so the account can
+  // tag right away; switching it off clears the position.
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_handler: isHandler, admin_position: isHandler ? "learner_formation_officer" : null })
+    .eq("id", profileId);
   if (error) {
     console.error("[toggleIsHandler] update failed", { profileId, error });
+    return { error: "Couldn't update that account. Please try again." };
+  }
+
+  revalidatePath("/developer/accounts");
+  return { error: null };
+}
+
+// Developer-only: which Admin position an Admin account holds. Cases are
+// viewed by both; only the Learner Formation Officer tags teachers.
+export async function setAdminPosition(
+  profileId: string,
+  position: AdminPosition,
+): Promise<{ error: string | null }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  if (position !== "learner_formation_officer" && position !== "school_head") return { error: "Invalid position." };
+
+  const supabase = await createClient();
+  const { data: target } = await supabase.from("profiles").select("role, is_handler").eq("id", profileId).single();
+  if (!target || target.role !== "staff" || !target.is_handler) return { error: "That account isn't an Admin." };
+
+  const { error } = await supabase.from("profiles").update({ admin_position: position }).eq("id", profileId);
+  if (error) {
+    console.error("[setAdminPosition] update failed", { profileId, error });
     return { error: "Couldn't update that account. Please try again." };
   }
 

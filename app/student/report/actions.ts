@@ -6,13 +6,40 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { classifySeverity } from "@/lib/ai/severity";
 import { getCurrentProfile } from "@/lib/auth";
-import type { BullyingType, SeverityLevel } from "@/types/database";
+import { BULLYING_TYPE_OPTIONS, TYPE_QUESTIONS, formatSetting } from "@/lib/reports/bullying-types";
+import type { BullyingType, BullyingTypeDetails, SeverityLevel } from "@/types/database";
 
-const BULLYING_TYPES: BullyingType[] = ["social", "cyber", "physical", "verbal"];
+const BULLYING_TYPES: BullyingType[] = BULLYING_TYPE_OPTIONS.map((o) => o.value);
+
+// The form posts the per-type follow-up answers as JSON. Keep only answers
+// for types the student actually selected, only that type's own options, and
+// cap the free-text "Other" so a crafted request can't stuff the row.
+function parseTypeDetails(raw: FormDataEntryValue | null, selected: BullyingType[]): BullyingTypeDetails {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw ?? "{}"));
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== "object") return {};
+
+  const result: BullyingTypeDetails = {};
+  for (const type of selected) {
+    const entry = (parsed as Record<string, { choices?: unknown; other?: unknown }>)[type];
+    if (!entry || typeof entry !== "object") continue;
+    const allowed = TYPE_QUESTIONS[type].options;
+    const choices = Array.isArray(entry.choices)
+      ? entry.choices.filter((c): c is string => typeof c === "string" && allowed.includes(c))
+      : [];
+    const other = typeof entry.other === "string" ? entry.other.trim().slice(0, 200) : "";
+    if (choices.length || other) result[type] = { choices: TYPE_QUESTIONS[type].multiple ? choices : choices.slice(0, 1), other: other || undefined };
+  }
+  return result;
+}
 
 export type SubmitBullyResult =
   | { error: string }
-  | { success: true; severity: SeverityLevel; id: string; createdAt: string };
+  | { success: true; severity: SeverityLevel; id: string; createdAt: string; caseYear: number | null; caseSeq: number | null };
 
 function evidenceTypeFromMime(mime: string): string {
   if (mime.startsWith("video")) return "video";
@@ -56,7 +83,7 @@ async function uploadEvidence(
 // alerting them here would just be a phantom alarm with nothing to show
 // for it once they open the panel.
 async function alertOnCritical(reportId: string, schoolId: string | null, severity: string) {
-  if ((severity !== "critical" && severity !== "serious") || !schoolId) return;
+  if ((severity !== "complex" && severity !== "serious") || !schoolId) return;
 
   const service = createServiceClient();
   const { data: recipients } = await service
@@ -80,7 +107,7 @@ async function alertOnCritical(reportId: string, schoolId: string | null, severi
   );
 }
 
-// Handlers triage every incoming report (not just critical ones — that's
+// Handlers triage every incoming report (not just complex ones — that's
 // what alertOnCritical above is for), so they get a notification row on
 // every submission. Separate, normal-urgency path so this doesn't also
 // trigger the "high" urgency alarm sound in UrgentNotificationBell for
@@ -126,7 +153,15 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
   const victimGradeSection = String(formData.get("victim_grade_section") ?? "").trim();
   const oppressorGradeSection = String(formData.get("oppressor_grade_section") ?? "").trim();
   const oppressorName = String(formData.get("oppressor_name") ?? "").trim();
-  const setting = String(formData.get("setting") ?? "").trim();
+  const typeDetails = parseTypeDetails(formData.get("type_details"), bullyingTypes);
+  // Date, time and place are separate inputs now; `setting` keeps the
+  // combined readable string that every staff screen and the classifier read.
+  const rawDate = String(formData.get("incident_date") ?? "").trim();
+  const rawTime = String(formData.get("incident_time") ?? "").trim();
+  const incidentDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : "";
+  const incidentTime = /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : "";
+  const incidentPlace = String(formData.get("incident_place") ?? "").trim().slice(0, 200);
+  const setting = formatSetting(incidentDate, incidentTime, incidentPlace);
 
   const { data: report, error } = await supabase
     .from("reports")
@@ -141,7 +176,7 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
       // the full multi-select set lives in report_bully_details.bullying_types.
       category: bullyingTypes[0] ?? null,
     })
-    .select("id, school_id, created_at")
+    .select("id, school_id, created_at, case_year, case_seq")
     .single();
 
   if (error || !report) {
@@ -159,6 +194,10 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
     oppressor_grade_section: oppressorGradeSection || null,
     oppressor_name: oppressorName || null,
     setting: setting || null,
+    incident_date: incidentDate || null,
+    incident_time: incidentTime || null,
+    incident_place: incidentPlace || null,
+    type_details: typeDetails,
   });
   if (bullyDetailsError) console.error("[submitBullyReport] report_bully_details insert failed", bullyDetailsError);
 
@@ -168,6 +207,7 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
   const assessment = await classifySeverity({
     description,
     bullyingTypes,
+    typeDetails,
     inImmediateDanger: inDanger,
     victimGradeSection: victimGradeSection || null,
     oppressorGradeSection: oppressorGradeSection || null,
@@ -193,6 +233,13 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
   await notifyHandlersOfNewReport(report.id, report.school_id);
 
   revalidatePath("/student");
-  return { success: true, severity: assessment.severity, id: report.id, createdAt: report.created_at };
+  return {
+    success: true,
+    severity: assessment.severity,
+    id: report.id,
+    createdAt: report.created_at,
+    caseYear: report.case_year ?? null,
+    caseSeq: report.case_seq ?? null,
+  };
 }
 

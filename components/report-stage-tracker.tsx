@@ -2,53 +2,46 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileSearch, MessageCircleMore, Calendar, Gavel, Cog, type LucideIcon } from "lucide-react";
+import { FileSearch, Activity, Gavel, Cog, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { STAGE_ORDER, STAGE_TITLES, nextUpdateEstimate } from "@/lib/reports/stage-labels";
+import { STAGE_ORDER, nextUpdatePeriodKey, normalizeStage } from "@/lib/reports/stage-labels";
+import { useT } from "@/components/i18n-provider";
+import type { Translate } from "@/lib/i18n/translate";
 import type { ReportStage, ReportStageProgress, SeverityLevel } from "@/types/database";
 
-// Case Assessment -> Scheduling -> Investigation & Counseling -> Case Closed.
-// See supabase/migrations/0012_reorder_stage_flow.sql.
-const STAGES: { id: ReportStage; icon: LucideIcon; title: string }[] = [
-  { id: "case_filed", icon: FileSearch, title: STAGE_TITLES.case_filed },
-  { id: "meeting", icon: Calendar, title: STAGE_TITLES.meeting },
-  { id: "investigation", icon: MessageCircleMore, title: STAGE_TITLES.investigation },
-  { id: "case_closed", icon: Gavel, title: STAGE_TITLES.case_closed },
+// Case Assessment -> Ongoing Action -> Case Closed.
+// See supabase/migrations/0029_three_step_case_flow.sql.
+// Stage titles are translated at render time (stage.<id> in lib/i18n/messages).
+const STAGES: { id: ReportStage; icon: LucideIcon }[] = [
+  { id: "case_filed", icon: FileSearch },
+  { id: "investigation", icon: Activity },
+  { id: "case_closed", icon: Gavel },
 ];
 
-const INVESTIGATION_TAIL =
-  "This process will involve collecting evidence and interviewing witnesses (if there are any), and will take a maximum of 3 school days.";
+const LAST = STAGES.length - 1;
 
-// Who handles a case depends on how serious it is (DO 006 s. 2026 levels):
-// Minor acts are guided and handled by the adviser; Serious acts go through
-// formal interventions by the Guidance Counselor and Learner Formation
-// Officer; Critical ones are led by the school head with those officers and
-// coordinated with law enforcement. A report with no severity yet (still
-// pending AI review) gets the generic wording.
-function subheadingFor(stage: ReportStage, severity: SeverityLevel | null): string {
-  const level = severity === "serious" || severity === "critical" ? severity : severity ? "minor" : null;
+// Who handles a case depends on how serious it is (DO 006 s. 2026 levels,
+// plus the Precursor tier from DepEd Memorandum 090, s. 2025): Precursor and
+// Minor cases are handled by the Learner Formation Officer; Serious ones go
+// through formal interventions by the Guidance Counselor and the Learner
+// Formation Officer; Complex ones are led by the school head with those
+// officers and coordinated with law enforcement. A report with no severity yet
+// (still pending AI review) gets the generic wording. The text itself lives in
+// lib/i18n/messages (English, Tagalog, Bisaya).
+function subheadingFor(stage: ReportStage, severity: SeverityLevel | null, t: Translate): string {
+  const level =
+    severity === "precursor" || severity === "serious" || severity === "complex" ? severity : severity ? "minor" : "default";
 
   switch (stage) {
+    // Only the Learner Formation Officer assesses and tags a teacher; the
+    // school head joins in only when the case is Complex.
     case "case_filed":
-      return "Your case is already filed. Within 24 hours of receiving this report, an Admin (Guidance Counselor, Principal, Prefect of Discipline, Child-Friendly Officer, or Learner Formation Officer) will assess the details before assigning a teacher to handle it.";
-    case "meeting":
-      if (level === "minor")
-        return "Your adviser is guiding and handling your case. They are planning next steps and scheduling any meetings needed. This takes place within 48 hours.";
-      if (level === "serious")
-        return "The Guidance Counselor and the Learner Formation Officer are planning the formal interventions for your case, together with the assigned teacher, and scheduling any meetings needed. This takes place within 48 hours.";
-      if (level === "critical")
-        return "The school head, together with the Guidance Counselor and the Learner Formation Officer, is planning the response to your case and scheduling any meetings needed. This takes place within 48 hours.";
-      return "The teacher assigned to your case is planning next steps and scheduling any meetings needed. This takes place within 48 hours.";
+      return level === "complex" ? t("tracker.filed.complex") : t("tracker.filed");
+    case "meeting": // retired Scheduling step — shown as Ongoing Action
     case "investigation":
-      if (level === "minor")
-        return `Your adviser is guiding and handling your case based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
-      if (level === "serious")
-        return `The Guidance Counselor and the Learner Formation Officer are carrying out a formal investigation based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
-      if (level === "critical")
-        return `The school head is leading the investigation, together with the Guidance Counselor and the Learner Formation Officer, and will coordinate with law enforcement where needed. Counseling and support are being arranged for anyone affected. ${INVESTIGATION_TAIL}`;
-      return `The Admin and the assigned teacher are carrying out a formal investigation based on the information you have given, alongside counseling and support for anyone affected. ${INVESTIGATION_TAIL}`;
+      return `${t(`tracker.ongoing.${level}`)} ${t("tracker.tail")}`;
     case "case_closed":
-      return "Your report has been acted on. Please report to Amoma again if any similar situations happen again.";
+      return t("tracker.closed");
   }
 }
 
@@ -64,7 +57,7 @@ function Segment({ state, wide }: { state: "completed" | "active" | "upcoming"; 
   return (
     <div
       className={`relative mt-5 h-1 flex-shrink-0 overflow-hidden rounded-full bg-[var(--color-border)] ${
-        wide ? "w-6 sm:w-10" : "w-4"
+        wide ? "min-w-4 flex-1" : "w-4"
       }`}
     >
       {state === "completed" && <div className="absolute inset-0 rounded-full bg-[var(--color-brand)]" />}
@@ -81,7 +74,6 @@ function Segment({ state, wide }: { state: "completed" | "active" | "upcoming"; 
 export function ReportStageTracker({
   role,
   reportId,
-  reportCreatedAt,
   initialProgress,
   severity = null,
 }: {
@@ -91,6 +83,7 @@ export function ReportStageTracker({
   initialProgress: ReportStageProgress;
   severity?: SeverityLevel | null;
 }) {
+  const { t } = useT();
   const [progress, setProgress] = useState(initialProgress);
 
   // A server re-render (e.g. the page revalidating for an unrelated reason)
@@ -121,10 +114,10 @@ export function ReportStageTracker({
     };
   }, [reportId]);
 
-  const currentIndex = STAGE_ORDER.indexOf(progress.current_stage);
+  const currentIndex = STAGE_ORDER.indexOf(normalizeStage(progress.current_stage));
   const closed = progress.current_stage === "case_closed" && progress.case_closed_at !== null;
   const activeStage = STAGES[currentIndex];
-  const estimate = nextUpdateEstimate(reportCreatedAt, progress);
+  const periodKey = nextUpdatePeriodKey(progress.current_stage);
 
   // Segment i connects icon (i-1) to icon i. It's completed once we've
   // moved past icon i, animating while icon i is the active stage we're
@@ -133,7 +126,7 @@ export function ReportStageTracker({
   // animating forever while "Case Closed" just sits as the active stage.
   function segmentState(i: number): "completed" | "active" | "upcoming" {
     if (currentIndex > i) return "completed";
-    if (currentIndex === i) return i === 3 && closed ? "completed" : "active";
+    if (currentIndex === i) return i === LAST && closed ? "completed" : "active";
     return "upcoming";
   }
 
@@ -167,13 +160,13 @@ export function ReportStageTracker({
         <Segment state={leadingSegmentState} wide={false} />
 
         {STAGES.map((stage, i) => {
-          const isCompleted = i < currentIndex || (i === 3 && closed);
-          const isActive = i === currentIndex && !(i === 3 && closed);
+          const isCompleted = i < currentIndex || (i === LAST && closed);
+          const isActive = i === currentIndex && !(i === LAST && closed);
           const Icon = stage.icon;
           const segment = i > 0 ? segmentState(i) : null;
 
           return (
-            <div key={stage.id} className="flex items-start">
+            <div key={stage.id} className={`flex items-start ${i > 0 ? "flex-1" : ""}`}>
               {segment && <Segment state={segment} wide />}
 
               <div className="flex w-16 flex-shrink-0 flex-col items-center sm:w-20">
@@ -185,7 +178,7 @@ export function ReportStageTracker({
                         ? "border-[var(--color-brand)] text-[var(--color-brand)]"
                         : "border-[var(--color-border)] text-[var(--color-text-muted)]"
                   }`}
-                  title={stage.title}
+                  title={t(`stage.${stage.id}`)}
                 >
                   {isActive && (
                     <span className="absolute inset-0 animate-ping rounded-full bg-[var(--color-brand)] opacity-75" />
@@ -197,7 +190,7 @@ export function ReportStageTracker({
                     i === currentIndex ? "text-[var(--color-brand)]" : "text-[var(--color-text-muted)]"
                   }`}
                 >
-                  {stage.title}
+                  {t(`stage.${stage.id}`)}
                 </span>
               </div>
             </div>
@@ -206,13 +199,13 @@ export function ReportStageTracker({
       </div>
 
       <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-sm">
-        <p className="font-medium">{activeStage.title}</p>
-        <p className="mt-1 text-[var(--color-text-muted)]">{subheadingFor(activeStage.id, severity)}</p>
-        {estimate && (
+        <p className="font-medium">{t(`stage.${activeStage.id}`)}</p>
+        <p className="mt-1 text-[var(--color-text-muted)]">{subheadingFor(activeStage.id, severity, t)}</p>
+        {periodKey && (
           <p className="mt-2 text-[var(--color-text-muted)]">
-            Next update estimate:{" "}
+            {t("tracker.nextUpdate")}{" "}
             <span className="font-medium text-[var(--color-text)]">
-              {estimate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              {t(periodKey)}
             </span>
           </p>
         )}
@@ -223,7 +216,7 @@ export function ReportStageTracker({
           href="/student"
           className="mt-4 flex w-full items-center justify-center rounded-xl bg-[var(--color-brand)] px-4 py-3 text-sm font-semibold text-[var(--color-on-brand)] hover:bg-[var(--color-brand-strong)]"
         >
-          Report
+          {t("tracker.report")}
         </Link>
       )}
     </div>

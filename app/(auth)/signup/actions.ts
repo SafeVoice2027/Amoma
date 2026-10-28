@@ -127,6 +127,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     deped_email: role !== "student" && !isEmployeeNumberSignup ? identifier : null,
     employee_number: isEmployeeNumberSignup ? identifier : null,
     is_handler: isHandler,
+    admin_position: isHandler ? "learner_formation_officer" : null,
     school_id: school.id,
     status: autoApproved ? "approved" : "pending",
     approved_at: autoApproved ? new Date().toISOString() : null,

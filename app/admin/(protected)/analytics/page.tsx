@@ -39,6 +39,8 @@ const CATEGORY_LABELS: Record<ReportCategory, string> = {
   cyber: "Cyber",
   verbal: "Verbal",
   physical: "Physical",
+  emotional: "Emotional",
+  gender_based: "Gender-based",
   conflict: "Conflict",
 };
 
@@ -49,26 +51,30 @@ const CATEGORY_BAR_COLORS: Record<ReportCategory, string> = {
   cyber: "var(--color-danger-500)",
   verbal: "var(--color-accent-500)",
   physical: "var(--color-primary-500)",
+  emotional: "#14b8a6",
+  gender_based: "#ec4899",
   conflict: "var(--color-accent-700)",
 };
 
-const CATEGORY_ORDER: ReportCategory[] = ["social", "cyber", "verbal", "physical", "conflict"];
+const CATEGORY_ORDER: ReportCategory[] = ["social", "cyber", "verbal", "physical", "emotional", "gender_based", "conflict"];
 
 const SEVERITY_LABELS: Record<SeverityLevel, string> = {
+  precursor: "Precursor",
   minor: "Minor",
   less_serious: "Less serious",
   serious: "Serious",
-  critical: "Critical",
+  complex: "Complex",
 };
 
 const SEVERITY_BAR_COLORS: Record<SeverityLevel, string> = {
+  precursor: "var(--color-neutral-400)",
   minor: "var(--color-primary-500)",
   less_serious: "var(--color-accent-400)",
   serious: "var(--color-danger-500)",
-  critical: "var(--color-danger-700)",
+  complex: "var(--color-danger-700)",
 };
 
-const SEVERITY_ORDER: SeverityLevel[] = ["minor", "less_serious", "serious", "critical"];
+const SEVERITY_ORDER: SeverityLevel[] = ["precursor", "minor", "less_serious", "serious", "complex"];
 
 const STATUS_LABELS: Record<ReportStatus, string> = {
   unresolved: "Unresolved",
@@ -235,7 +241,7 @@ export default async function AdminAnalyticsPage() {
           <div className="mb-3 flex items-center justify-end gap-3 text-xs text-[var(--color-text-muted)]">
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-[var(--color-primary-500)]" />
-              Bully
+              Bullying
             </span>
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-[var(--color-accent-500)]" />

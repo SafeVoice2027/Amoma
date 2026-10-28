@@ -7,7 +7,7 @@ import { ApprovalRow } from "@/components/approval-row";
 import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
 import { SeverityReportBoard } from "@/components/severity-report-board";
-import { formatCaseId } from "@/lib/reports/case-id";
+import { formatReference } from "@/lib/reports/case-id";
 import { TypeFileBrowser } from "@/components/type-file-browser";
 import type { Profile, ReportTypeFile, StaffReportsView, UserRole } from "@/types/database";
 
@@ -24,6 +24,8 @@ type ReportRow = Pick<
   | "created_at"
   | "updated_at"
   | "visible_reporter_id"
+  | "case_year"
+  | "case_seq"
 >;
 
 const RECENT_REPORTER_WINDOW_DAYS = 7;
@@ -38,7 +40,7 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
   const { data, error } = await supabase
     .from("staff_reports_view")
     .select(
-      "id, type, status, severity, category, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
+      "id, type, status, severity, category, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id, case_year, case_seq",
     )
     .order("created_at", { ascending: false })
     .returns<ReportRow[]>();
@@ -53,7 +55,7 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
       "id, type, status, severity, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
     )
     .order("created_at", { ascending: false })
-    .returns<Omit<ReportRow, "category">[]>();
+    .returns<Omit<ReportRow, "category" | "case_year" | "case_seq">[]>();
 
   if (fallback.error) {
     console.error("[admin] staff_reports_view fallback query also failed", fallback.error);
@@ -149,7 +151,7 @@ export default async function AdminHomePage() {
     const recentCount = r.visible_reporter_id ? recentReporterCounts.get(r.visible_reporter_id) : undefined;
     return {
       id: r.id,
-      caseId: formatCaseId(r.id, r.created_at),
+      caseId: formatReference(r.id, r.created_at, r.status, undefined, r),
       category: r.category,
       status: r.status,
       flagged: r.immediate_danger,
@@ -173,7 +175,7 @@ export default async function AdminHomePage() {
 
   const severityRows = allReports.map((r) => ({
     id: r.id,
-    caseId: formatCaseId(r.id, r.created_at),
+    caseId: formatReference(r.id, r.created_at, r.status, undefined, r),
     type: r.type,
     status: r.status,
     severity: r.severity,

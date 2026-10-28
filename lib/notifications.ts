@@ -53,14 +53,14 @@ export async function fetchNotifications(
 // app/student/report/actions.ts now fires this for both tiers).
 export function buildUrgentNotificationItems(
   notifications: NotificationRowPick[],
-  reportsById: Map<string, { created_at: string; severity?: SeverityLevel | null }>,
+  reportsById: Map<string, { created_at: string; severity?: SeverityLevel | null; case_year?: number | null; case_seq?: number | null }>,
 ): { id: string; reportId: string; caseId: string; createdAt: string; severity: SeverityLevel | null }[] {
   return notifications
     .filter((n): n is NotificationRowPick & { report_id: string } => !!n.report_id && reportsById.has(n.report_id))
     .map((n) => ({
       id: n.id,
       reportId: n.report_id,
-      caseId: formatCaseId(n.report_id, reportsById.get(n.report_id)!.created_at),
+      caseId: formatCaseId(n.report_id, reportsById.get(n.report_id)!.created_at, reportsById.get(n.report_id)),
       createdAt: n.created_at,
       severity: reportsById.get(n.report_id)!.severity ?? null,
     }));
@@ -83,7 +83,7 @@ export async function fetchUrgentAlerts(
   const notifications = await fetchNotifications(supabase, recipientId, { urgency: "high" });
   const reportIds = [...new Set(notifications.map((n) => n.report_id).filter((id): id is string => !!id))];
   const { data: reports } = reportIds.length
-    ? await supabase.from("reports").select("id, created_at, severity").in("id", reportIds)
+    ? await supabase.from("reports").select("id, created_at, severity, case_year, case_seq").in("id", reportIds)
     : { data: [] as { id: string; created_at: string; severity: SeverityLevel | null }[] };
   const reportsById = new Map((reports ?? []).map((r) => [r.id, r]));
   return {

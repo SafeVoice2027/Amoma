@@ -7,18 +7,21 @@ const BULLYING_TYPE_LABELS: Record<string, string> = {
   cyber: "Cyber",
   physical: "Physical",
   social: "Social",
+  emotional: "Emotional",
+  gender_based: "Gender-based",
 };
 const SEVERITY_LABELS: Record<string, string> = {
-  critical: "Critical",
+  complex: "Complex",
   serious: "Serious",
   less_serious: "Less serious",
   minor: "Minor",
+  precursor: "Precursor",
 };
 
 // Fixed display order so a missing key still shows as 0 instead of silently
 // vanishing — "no Cyber reports this month" is information, not an omission.
-const BULLYING_TYPE_ORDER = ["verbal", "cyber", "physical", "social"];
-const SEVERITY_ORDER = ["critical", "serious", "less_serious", "minor"];
+const BULLYING_TYPE_ORDER = ["verbal", "cyber", "physical", "social", "emotional", "gender_based"];
+const SEVERITY_ORDER = ["complex", "serious", "less_serious", "minor", "precursor"];
 
 function BreakdownCard({
   title,

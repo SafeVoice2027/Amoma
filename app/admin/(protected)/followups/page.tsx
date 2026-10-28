@@ -2,11 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { Card, PageHeader, SeverityBadge } from "@/components/ui";
-import { formatCaseId } from "@/lib/reports/case-id";
+import { formatReference } from "@/lib/reports/case-id";
 import type { Profile, Report, ReportFollowup } from "@/types/database";
 
 type FollowupRow = Pick<ReportFollowup, "id" | "report_id" | "message" | "author_id" | "created_at">;
-type ReportRow = Pick<Report, "id" | "type" | "severity" | "is_anonymous" | "created_at">;
+type ReportRow = Pick<Report, "id" | "type" | "status" | "severity" | "is_anonymous" | "created_at" | "case_year" | "case_seq">;
 
 export default async function AdminFollowupsPage() {
   const profile = await requireAdminOrHandler();
@@ -31,7 +31,7 @@ export default async function AdminFollowupsPage() {
   const { data: reports } = reportIds.length
     ? await supabase
         .from("reports")
-        .select("id, type, severity, is_anonymous, created_at")
+        .select("id, type, status, severity, is_anonymous, created_at, case_year, case_seq")
         .in("id", reportIds)
         .returns<ReportRow[]>()
     : { data: [] as ReportRow[] };
@@ -68,7 +68,7 @@ export default async function AdminFollowupsPage() {
                     )}
                   </p>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {formatCaseId(report.id, report.created_at)}
+                    {formatReference(report.id, report.created_at, report.status, undefined, report)}
                   </p>
                 </div>
                 <SeverityBadge severity={report.severity} />

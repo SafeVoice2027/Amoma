@@ -27,6 +27,8 @@ export const CATEGORY_LABELS: Record<ReportCategory, string> = {
   cyber: "Cyber",
   verbal: "Verbal",
   physical: "Physical",
+  emotional: "Emotional",
+  gender_based: "Gender-based",
   conflict: "Conflict",
 };
 
@@ -35,6 +37,8 @@ export const CATEGORY_STYLES: Record<ReportCategory, string> = {
   cyber: "bg-red-500/15 text-red-400",
   verbal: "bg-amber-500/15 text-amber-400",
   physical: "bg-blue-500/15 text-blue-400",
+  emotional: "bg-teal-500/15 text-teal-400",
+  gender_based: "bg-pink-500/15 text-pink-400",
   conflict:
     "bg-[color-mix(in_srgb,var(--color-accent-500)_15%,transparent)] text-[var(--color-accent-500)]",
 };
@@ -124,7 +128,7 @@ export function CaseOverviewTable({
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] text-left text-xs font-medium text-[var(--color-text-muted)]">
-              <th className="px-4 py-3">Tracking code</th>
+              <th className="px-4 py-3">Report / Case No.</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Submitted</th>
               <th className="px-4 py-3">Status</th>

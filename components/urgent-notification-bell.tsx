@@ -23,7 +23,7 @@ export interface UrgentNotificationItem {
 // wave, 3x) so it's unmistakably the more urgent of the two. Serious gets a
 // single, softer tone (one pitch, sine wave, 2x) — audibly distinct without
 // being alarming enough to be mistaken for Critical.
-function playAlarm(mostSevere: "critical" | "serious") {
+function playAlarm(mostSevere: "complex" | "serious") {
   const AudioContextClass =
     window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) return;
@@ -44,7 +44,7 @@ function playAlarm(mostSevere: "critical" | "serious") {
     osc.stop(now + start + duration + 0.02);
   };
 
-  if (mostSevere === "critical") {
+  if (mostSevere === "complex") {
     for (let i = 0; i < 3; i++) {
       beep(i * 0.5, 880, 0.22, "square", 0.15);
       beep(i * 0.5 + 0.25, 660, 0.22, "square", 0.15);
@@ -97,7 +97,7 @@ export function UrgentNotificationBell({
   useEffect(() => {
     if (unreadCount > 0 && !playedRef.current) {
       playedRef.current = true;
-      const mostSevere = items.some((i) => i.severity === "critical") ? "critical" : "serious";
+      const mostSevere = items.some((i) => i.severity === "complex") ? "complex" : "serious";
       try {
         playAlarm(mostSevere);
       } catch {
@@ -127,7 +127,7 @@ export function UrgentNotificationBell({
 
       if (newItems.length > 0) {
         setDismissed(false);
-        const mostSevere = newItems.some((i) => i.severity === "critical") ? "critical" : "serious";
+        const mostSevere = newItems.some((i) => i.severity === "complex") ? "complex" : "serious";
         try {
           playAlarm(mostSevere);
         } catch {
@@ -186,7 +186,7 @@ export function UrgentNotificationBell({
                     className="block rounded-xl px-2 py-2 hover:bg-[var(--color-background)]"
                   >
                     <p className="text-sm font-medium text-[var(--color-danger-500)]">
-                      {item.caseId} — {item.severity === "critical" ? "Critical / immediate danger" : "Serious"}
+                      {item.caseId} — {item.severity === "complex" ? "Complex / immediate danger" : "Serious"}
                     </p>
                     <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
                       {new Date(item.createdAt).toLocaleString()}

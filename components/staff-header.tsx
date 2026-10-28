@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
-import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
 
 export function StaffHeader({
   fullName,
@@ -14,9 +13,6 @@ export function StaffHeader({
   unreadUrgentCount,
   markUrgentRead,
   pollUrgentAlerts,
-  tagItems,
-  markTagRead,
-  showMail,
 }: {
   fullName: string;
   onSignOut: () => Promise<void>;
@@ -24,9 +20,6 @@ export function StaffHeader({
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
   pollUrgentAlerts: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
-  tagItems: TeacherTagMailItem[];
-  markTagRead: (tagId: string) => Promise<void>;
-  showMail: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -38,14 +31,6 @@ export function StaffHeader({
         </Link>
 
         <div className="flex items-center gap-1">
-          {showMail && (
-            <TeacherTagsMail
-              items={tagItems}
-              reportBasePath="/staff/reports"
-              mode="inbox"
-              markRead={markTagRead}
-            />
-          )}
           <UrgentNotificationBell
             items={urgentItems}
             unreadCount={unreadUrgentCount}

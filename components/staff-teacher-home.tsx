@@ -3,12 +3,13 @@ import { Card, PageHeader, SeverityBadge, StatusBadge } from "@/components/ui";
 import { TypeFileBrowser } from "@/components/type-file-browser";
 import type { ReportTypeFile, SeverityLevel } from "@/types/database";
 
-const SEVERITY_ORDER: (SeverityLevel | null)[] = ["critical", "serious", "less_serious", "minor", null];
+const SEVERITY_ORDER: (SeverityLevel | null)[] = ["complex", "serious", "less_serious", "minor", "precursor", null];
 const SEVERITY_TITLES: Record<string, string> = {
-  critical: "Critical — needs immediate attention",
+  complex: "Complex — needs immediate attention",
   serious: "Serious",
   less_serious: "Less serious",
   minor: "Minor",
+  precursor: "Precursor to bullying",
   null: "Pending AI review",
 };
 

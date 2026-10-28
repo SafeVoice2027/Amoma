@@ -6,7 +6,6 @@ import { useState } from "react";
 import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, ClipboardList, Users, Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
-import { TeacherTagsMail, type TeacherTagMailItem } from "@/components/teacher-tags-mail";
 
 // Bug reports and Accounts are Developer-only — they only exist under
 // /developer/* at all now (see app/developer/(protected)/{bug-reports,accounts}),
@@ -67,7 +66,6 @@ export function AdminSidebar({
   unreadUrgentCount,
   markUrgentRead,
   pollUrgentAlerts,
-  tagItems,
   pendingApprovalsCount,
   openBugReportsCount,
 }: {
@@ -78,7 +76,6 @@ export function AdminSidebar({
   unreadUrgentCount: number;
   markUrgentRead: () => Promise<void>;
   pollUrgentAlerts: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
-  tagItems: TeacherTagMailItem[];
   pendingApprovalsCount: number;
   openBugReportsCount: number;
 }) {
@@ -92,7 +89,6 @@ export function AdminSidebar({
 
   return (
     <nav className="flex w-16 flex-shrink-0 print:hidden flex-col items-center gap-2 border-r border-[var(--color-border)] py-4">
-      <TeacherTagsMail items={tagItems} reportBasePath={`${basePath}/reports`} mode="sent" panelPlacement="right" />
       <UrgentNotificationBell
         items={urgentItems}
         unreadCount={unreadUrgentCount}

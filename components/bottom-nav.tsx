@@ -5,14 +5,20 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Home, Info, Settings, LogOut, ShieldCheck, HelpCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguagePicker } from "@/components/language-picker";
+import { useT } from "@/components/i18n-provider";
+import type { Language } from "@/lib/i18n/languages";
 
 export function BottomNav({
   fullName,
   onSignOut,
+  setLanguage,
 }: {
   fullName: string;
   onSignOut: () => Promise<void>;
+  setLanguage: (lang: Language) => Promise<void>;
 }) {
+  const { t } = useT();
   const pathname = usePathname();
   const [panel, setPanel] = useState<"info" | "settings" | null>(null);
   const isHome = pathname === "/student";
@@ -24,14 +30,15 @@ export function BottomNav({
           {panel === "info" ? (
             <div className="flex items-start gap-2 text-sm">
               <ShieldCheck size={18} className="mt-0.5 flex-shrink-0 text-[var(--color-primary-600)]" />
-              <p className="text-[var(--color-text-muted)]">
-                Protected under RA 10173 — Data Privacy Act of 2012. Your identity is never shared
-                with school staff.
-              </p>
+              <p className="text-[var(--color-text-muted)]">{t("nav.privacy")}</p>
             </div>
           ) : (
             <div>
               <p className="text-sm font-medium">{fullName}</p>
+
+              <div className="mt-3">
+                <LanguagePicker setLanguage={setLanguage} />
+              </div>
 
               <div className="mt-3">
                 <ThemeToggle />
@@ -43,7 +50,7 @@ export function BottomNav({
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-background)]"
               >
                 <HelpCircle size={16} />
-                Help Hub
+                {t("nav.helpHub")}
               </Link>
 
               <form action={onSignOut} className="mt-3">
@@ -52,7 +59,7 @@ export function BottomNav({
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-background)]"
                 >
                   <LogOut size={16} />
-                  Sign out
+                  {t("nav.signOut")}
                 </button>
               </form>
             </div>
@@ -64,7 +71,7 @@ export function BottomNav({
         <Link
           href="/student"
           onClick={() => setPanel(null)}
-          aria-label="Home"
+          aria-label={t("nav.home")}
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
             isHome ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]" : "text-neutral-300"
           }`}
@@ -73,7 +80,7 @@ export function BottomNav({
         </Link>
         <button
           type="button"
-          aria-label="Info"
+          aria-label={t("nav.info")}
           onClick={() => setPanel((p) => (p === "info" ? null : "info"))}
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
             panel === "info" ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]" : "text-neutral-300"
@@ -83,7 +90,7 @@ export function BottomNav({
         </button>
         <button
           type="button"
-          aria-label="Settings"
+          aria-label={t("nav.settings")}
           onClick={() => setPanel((p) => (p === "settings" ? null : "settings"))}
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
             panel === "settings" ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]" : "text-neutral-300"

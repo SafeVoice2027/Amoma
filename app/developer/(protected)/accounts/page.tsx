@@ -2,12 +2,12 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui";
 import { AccountList } from "@/components/account-list";
-import { changeUserPassword, toggleIsHandler, setEmployeeNumber } from "@/app/admin/actions";
+import { changeUserPassword, toggleIsHandler, setEmployeeNumber, setAdminPosition } from "@/app/admin/actions";
 import type { Profile, UserRole } from "@/types/database";
 
 type AccountProfile = Pick<
   Profile,
-  "id" | "full_name" | "role" | "lrn" | "deped_email" | "is_handler" | "employee_number"
+  "id" | "full_name" | "role" | "lrn" | "deped_email" | "is_handler" | "employee_number" | "admin_position"
 >;
 
 // is_handler/employee_number don't exist until
@@ -18,7 +18,7 @@ type AccountProfile = Pick<
 async function fetchAccounts(supabase: Awaited<ReturnType<typeof createClient>>): Promise<AccountProfile[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, role, lrn, deped_email, is_handler, employee_number")
+    .select("id, full_name, role, lrn, deped_email, is_handler, employee_number, admin_position")
     .eq("status", "approved")
     .in("role", ["staff", "student"] satisfies UserRole[])
     .order("full_name", { ascending: true })
@@ -34,14 +34,14 @@ async function fetchAccounts(supabase: Awaited<ReturnType<typeof createClient>>)
     .eq("status", "approved")
     .in("role", ["staff", "student"] satisfies UserRole[])
     .order("full_name", { ascending: true })
-    .returns<Omit<AccountProfile, "is_handler" | "employee_number">[]>();
+    .returns<Omit<AccountProfile, "is_handler" | "employee_number" | "admin_position">[]>();
 
   if (fallback.error) {
     console.error("[admin accounts] fallback query also failed", fallback.error);
     return [];
   }
 
-  return (fallback.data ?? []).map((a) => ({ ...a, is_handler: false, employee_number: null }));
+  return (fallback.data ?? []).map((a) => ({ ...a, is_handler: false, employee_number: null, admin_position: null }));
 }
 
 export default async function AdminAccountsPage() {
@@ -61,6 +61,7 @@ export default async function AdminAccountsPage() {
         onChangePassword={changeUserPassword}
         onToggleHandler={toggleIsHandler}
         onSetEmployeeNumber={setEmployeeNumber}
+        onSetAdminPosition={setAdminPosition}
       />
     </div>
   );

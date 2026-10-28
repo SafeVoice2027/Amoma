@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { Card } from "@/components/ui";
 import { ReportThread, type ReportSummary } from "@/components/report-thread";
+import { useT } from "@/components/i18n-provider";
 
 const FOLLOWUP_HASH_PREFIX = "#report-";
 
@@ -33,6 +34,7 @@ export function ReportsList({
   currentUserId: string;
   sendMessage: (reportId: string, message: string) => Promise<void>;
 }) {
+  const { t } = useT();
   const [expandedByUser, setExpandedByUser] = useState(false);
 
   // A notification link (#report-<id>) may point at a report outside the
@@ -47,14 +49,14 @@ export function ReportsList({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">My Reports</h2>
+        <h2 className="text-lg font-semibold">{t("reports.title")}</h2>
         {reports.length > 3 && (
           <button
             type="button"
             onClick={() => setExpandedByUser((e) => !e)}
             className="text-sm font-medium text-[var(--color-brand)]"
           >
-            {expanded ? "Show less" : "See All"}
+            {expanded ? t("reports.showLess") : t("reports.seeAll")}
           </button>
         )}
       </div>
@@ -62,7 +64,7 @@ export function ReportsList({
       {reports.length === 0 ? (
         <Card>
           <p className="text-[var(--color-text-muted)]">
-            You haven&apos;t submitted any reports yet. Anything you share stays confidential.
+            {t("reports.empty")}
           </p>
         </Card>
       ) : (

@@ -3,22 +3,18 @@
 import { useState, useTransition } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button, Card } from "@/components/ui";
+import { useT } from "@/components/i18n-provider";
 import type { BugReportCategory } from "@/types/database";
 import type { SubmitBugReportResult } from "@/app/student/help/actions";
 
-const CATEGORY_OPTIONS: { value: BugReportCategory; label: string }[] = [
-  { value: "login", label: "Trouble logging in" },
-  { value: "report_submission", label: "Problem submitting a report" },
-  { value: "notifications", label: "Notifications not working" },
-  { value: "app_bug", label: "Something in the app is broken" },
-  { value: "other", label: "Others" },
-];
+const CATEGORY_VALUES: BugReportCategory[] = ["login", "report_submission", "notifications", "app_bug", "other"];
 
 export function BugReportForm({
   submitBugReport,
 }: {
   submitBugReport: (formData: FormData) => Promise<SubmitBugReportResult>;
 }) {
+  const { t } = useT();
   const [category, setCategory] = useState<BugReportCategory | "">("");
   const [otherCategory, setOtherCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -32,9 +28,9 @@ export function BugReportForm({
         <div className="flex items-start gap-3">
           <CheckCircle2 size={22} className="mt-0.5 flex-shrink-0 text-[var(--color-primary-600)]" />
           <div>
-            <p className="font-medium">Thanks for letting us know.</p>
+            <p className="font-medium">{t("bug.thanks")}</p>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              Our team will look into it. You can send another report anytime.
+              {t("bug.thanksSub")}
             </p>
           </div>
         </div>
@@ -49,7 +45,7 @@ export function BugReportForm({
             setDescription("");
           }}
         >
-          Send another
+          {t("bug.another")}
         </Button>
       </Card>
     );
@@ -57,9 +53,9 @@ export function BugReportForm({
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Report a bug</h2>
+      <h2 className="text-lg font-semibold">{t("bug.title")}</h2>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-        Found something that isn&apos;t working right? Let us know and we&apos;ll take a look.
+        {t("bug.sub")}
       </p>
 
       <form
@@ -74,11 +70,11 @@ export function BugReportForm({
         }}
       >
         <div className="space-y-2">
-          {CATEGORY_OPTIONS.map((opt) => (
+          {CATEGORY_VALUES.map((value) => (
             <label
-              key={opt.value}
+              key={value}
               className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${
-                category === opt.value
+                category === value
                   ? "border-[var(--color-brand)] bg-[var(--color-primary-100)]"
                   : "border-[var(--color-border)] hover:bg-[var(--color-background)]"
               }`}
@@ -86,12 +82,12 @@ export function BugReportForm({
               <input
                 type="radio"
                 name="category"
-                value={opt.value}
-                checked={category === opt.value}
-                onChange={() => setCategory(opt.value)}
+                value={value}
+                checked={category === value}
+                onChange={() => setCategory(value)}
                 className="h-4 w-4 accent-[var(--color-brand)]"
               />
-              {opt.label}
+              {t(`bug.${value}`)}
             </label>
           ))}
         </div>
@@ -101,7 +97,7 @@ export function BugReportForm({
             name="other_category"
             value={otherCategory}
             onChange={(e) => setOtherCategory(e.target.value)}
-            placeholder="Briefly, what's this about?"
+            placeholder={t("bug.otherPh")}
             className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-base outline-none focus:border-[var(--color-brand)] min-h-[3rem]"
           />
         )}
@@ -110,7 +106,7 @@ export function BugReportForm({
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe what happened..."
+          placeholder={t("bug.descPh")}
           rows={4}
           className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-base outline-none focus:border-[var(--color-brand)]"
         />
@@ -118,7 +114,7 @@ export function BugReportForm({
         {error && <p className="text-sm text-[var(--color-danger-600)]">{error}</p>}
 
         <Button type="submit" disabled={pending || !category || !description.trim()} className="w-full">
-          {pending ? "Sending..." : "Send report"}
+          {pending ? t("bug.sending") : t("bug.send")}
         </Button>
       </form>
     </Card>

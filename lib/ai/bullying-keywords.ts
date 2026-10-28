@@ -1,6 +1,6 @@
 // Cebuano/Bisaya and Tagalog vocabulary for the three Levels of Disciplinary
 // Intervention in DepEd Order No. 006, s. 2026, Section 21 (First Level ->
-// "minor", Second -> "serious", Third -> "critical"; see lib/ai/severity.ts).
+// "minor", Second -> "serious", Third -> "complex"; see lib/ai/severity.ts).
 //
 // Used three ways: (1) given to Claude as a reading guide, (2) scanned
 // against the report text to hand Claude (and staff) a list of what matched,
@@ -441,7 +441,7 @@ export function highestLevel(hits: KeywordHit[]): 0 | KeywordLevel {
 const LEVEL_NAMES: Record<KeywordLevel, string> = {
   1: "First Level (minor)",
   2: "Second Level (serious)",
-  3: "Third Level (critical)",
+  3: "Third Level (complex)",
 };
 
 // The reference list handed to Claude in the system prompt. Weak (everyday)
