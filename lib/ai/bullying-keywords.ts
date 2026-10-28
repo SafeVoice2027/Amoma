@@ -465,3 +465,107 @@ export function describeHits(hits: KeywordHit[]): string {
     .map((h) => `${LEVEL_NAMES[h.level]} — ${h.label}: ${h.matched.slice(0, 5).map((m) => `"${m}"`).join(", ")}`)
     .join("; ");
 }
+
+// ------------------------------------------------------- Bullying type (kind)
+// The report form no longer asks the student to pick a bullying type, so it is
+// worked out from the description: by Claude when an API key is configured, and
+// by the keyword lists below otherwise (and whenever Claude returns nothing
+// usable). Two sources feed the keyword route: (1) each Level category above
+// belongs to a type (a punching word -> physical, a sexist slur -> gender-
+// based…), and (2) a small extra vocabulary for the types the Level lists don't
+// separate (online/social-media words -> cyber, exclusion and rumor words ->
+// social, humiliation and fear words -> emotional). Hints, not verdicts.
+
+import type { BullyingType } from "@/types/database";
+
+const CATEGORY_TYPES: Record<string, BullyingType[]> = {
+  "l1-profanity": ["verbal"],
+  "l1-pranks": ["social"],
+  "l1-grabbing": ["physical"],
+  "l1-punching": ["physical"],
+  "l1-fighting": ["physical"],
+  "l2-stalking": ["emotional"],
+  "l2-catcalling": ["gender_based"],
+  "l2-slurs": ["gender_based", "verbal"],
+  "l2-appearance": ["verbal"],
+  "l2-sexual-comments": ["gender_based"],
+  "l2-injury-words": ["physical"],
+  "l2-injury-actions": ["physical"],
+  "l2-theft": ["physical"],
+  "l2-threat-phrases": ["emotional", "verbal"],
+  "l2-threat-actions": ["emotional"],
+  "l3-medical": ["physical"],
+  "l3-severe-actions": ["physical"],
+  "l3-lewd": ["gender_based"],
+  "l3-shaming-media": ["cyber", "emotional"],
+  "l3-sexual-content": ["cyber", "gender_based"],
+};
+
+const TYPE_HINTS: { type: BullyingType; terms: string[]; stems?: string[] }[] = [
+  {
+    type: "cyber",
+    terms: [
+      "facebook", "fb", "messenger", "instagram", "tiktok", "twitter", "viber", "telegram", "discord", "youtube",
+      "group chat", "gc", "online", "posted", "post", "social media", "screenshot", "dm", "inbox", "comment section",
+      "ipinost", "gipost", "nagpost", "gichat", "online game", "mobile legends",
+    ],
+    stems: ["gipost", "gi-post", "gichat", "gi-chat"],
+  },
+  {
+    type: "social",
+    terms: [
+      "excluded", "left out", "ignored", "ignore", "rumor", "rumors", "gossip", "tsismis", "chismis", "gitsismis",
+      "gichismis", "isolated", "isolate", "gibiyaan", "giisolate", "giexclude", "iniiwasan", "inaayawan",
+      "hindi isinasama", "ayaw nila akong kausapin", "wala gipaapil", "dili paapila", "walay kauban",
+    ],
+  },
+  {
+    type: "emotional",
+    terms: [
+      "humiliated", "humiliate", "embarrassed", "embarrass", "intimidated", "scared", "afraid", "blackmail",
+      "blackmailed", "manipulate", "manipulated", "belittled", "put down", "pinahiya", "hiniya", "tinakot",
+      "natatakot", "gihadlok", "nahadlok", "gipakaulawan", "napakaulaw", "gibiaybiay", "gitamay", "gi-blackmail",
+    ],
+  },
+  {
+    type: "verbal",
+    terms: [
+      "called me", "name calling", "insult", "insulted", "mocked", "teased", "tinukso", "gitukso", "tukso",
+      "sinigawan", "gisinggitan", "shouted at", "yelled at", "binully", "gibully",
+    ],
+  },
+  {
+    type: "physical",
+    terms: [
+      "punch", "punched", "kick", "kicked", "slap", "slapped", "pushed", "shoved", "choked", "pinched", "hit me",
+      "suntok", "sinuntok", "sampal", "sinampal", "sipa", "sinipa", "tulak", "tinulak", "sumbag", "gisumbag",
+      "gisipa", "gisampal", "gitulak", "bugbog", "binugbog", "bunal", "gibunal", "kurot", "kinurot", "gikurot",
+    ],
+    stems: ["suntok", "sampal", "sumbag", "bugbog", "bunal", "kurot", "punch", "slapp"],
+  },
+  {
+    type: "gender_based",
+    terms: [
+      "gay", "bakla", "bayot", "lesbian", "homophobic", "sexist", "transgender", "sogie", "sexual harassment",
+      "catcall", "catcalled", "slut", "binabae", "tomboy",
+    ],
+  },
+];
+
+export const BULLYING_TYPE_ORDER: BullyingType[] = ["social", "cyber", "physical", "verbal", "emotional", "gender_based"];
+
+export function inferBullyingTypes(description: string): BullyingType[] {
+  const text = normalize(description);
+  if (!text) return [];
+
+  const found = new Set<BullyingType>();
+  for (const hit of scanKeywords(description)) {
+    for (const type of CATEGORY_TYPES[hit.categoryId] ?? []) found.add(type);
+  }
+  for (const hint of TYPE_HINTS) {
+    if (hint.terms.some((t) => hasWholeWord(text, t)) || (hint.stems ?? []).some((s) => hasStem(text, s))) {
+      found.add(hint.type);
+    }
+  }
+  return BULLYING_TYPE_ORDER.filter((t) => found.has(t));
+}

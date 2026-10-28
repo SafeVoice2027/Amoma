@@ -1,6 +1,14 @@
 import type { BullyingType, BullyingTypeDetails, SeverityLevel } from "@/types/database";
 import { BULLYING_TYPE_LABELS, describeTypeDetails } from "@/lib/reports/bullying-types";
-import { buildKeywordGuide, describeHits, highestLevel, scanKeywords, type KeywordLevel } from "@/lib/ai/bullying-keywords";
+import {
+  BULLYING_TYPE_ORDER,
+  buildKeywordGuide,
+  describeHits,
+  highestLevel,
+  inferBullyingTypes,
+  scanKeywords,
+  type KeywordLevel,
+} from "@/lib/ai/bullying-keywords";
 
 // DepEd Order No. 006, s. 2026 ("Guidelines on Ensuring a Safe and
 // Motivating Learning Environment"), Section 21 — Levels of Disciplinary
@@ -60,6 +68,9 @@ export interface SeverityInput {
 
 export interface SeverityResult {
   severity: SeverityLevel;
+  // Bullying type(s) the report describes, worked out from the description (the
+  // student no longer picks one). Empty when nothing clearly applies.
+  bullyingTypes: BullyingType[];
   // Why it was classified at this Level — the report content, people
   // involved, setting, and evidence are shown as their own fields on the
   // "AI assessment" card (see the report detail pages), so this only needs
@@ -98,11 +109,11 @@ async function classifyWithClaude(input: SeverityInput): Promise<SeverityResult>
   const message = await client.messages.create({
     model,
     max_tokens: 500,
-    system: [{ type: "text" as const, cache_control: { type: "ephemeral" as const }, text: `You triage school bullying reports for a staff member who is about to open the case for the first time — you never determine guilt or discipline. Classify strictly against the Precursor tier (DepEd Memorandum 090, s. 2025) and the three Levels of Disciplinary Intervention defined in DepEd Order No. 006, s. 2026, Section 21:\n${DEPED_SEVERITY_GUIDE}\nMap your classification to severity values: Precursor -> "precursor"; First Level -> "minor"; Second Level -> "serious"; Third Level -> "complex". Use "precursor" ONLY when the report describes light, isolated acts (mild teasing, a one-off joke or prank, a small spat) with no profanity aimed at the learner, no threat, no physical contact, no repeated targeting and no sign the learner is distressed or afraid; when you are unsure between Precursor and First Level, choose "minor". Never use "less_serious" — it is not part of this standard. If the report describes acts spanning more than one level, classify at the HIGHEST level clearly supported by the facts stated. Physical contact (punching, pinching, fighting) is First Level UNLESS the report states it caused an injury, in which case it is at least Second Level ("slight" injury) or Third Level (victim incapacitated or needs 10+ days of medical care) depending on severity of the injury described — if the report doesn't say whether an injury occurred, do not assume one occurred. The student also tags which type(s) of bullying this was (Social/Cyber/Physical/Verbal/Emotional/Gender-based) and answers a short follow-up question per type (e.g. which app a Cyber incident happened on, whether the student was hurt in a Physical one) — treat the tags and answers as structured hints about where to look in the description (e.g. a "Cyber" tag means check for online sharing/uploading acts, which can reach Third Level), never as the sole basis for a Level by itself. Students may write in English, Filipino/Tagalog, Bisaya/Cebuano, or a mix — read and classify the report correctly regardless of language; write your rationale and recommendations in English for staff-facing consistency. The report content, people involved, setting, and evidence are already shown to staff as their own fields elsewhere on the page — your rationale should NOT restate them, only explain the classification. "Victim's grade/section" and "Oppressor's grade/section" are CLASS IDENTIFIERS (grade level + section name, e.g. "Grade 9 - Crystal"), never a person's name — even if only a section name is given with no grade number, do not treat it as anyone's name or address a recommendation to it as if it were a person (e.g. never write "refer Crystal to the nurse"; write "refer the Grade 9 - Crystal victim to the nurse" or similar instead). ${KEYWORD_PROMPT}\nRespond ONLY with JSON: {"severity": "precursor"|"minor"|"serious"|"complex", "rationale": string (1-2 sentences: which Level of Disciplinary Intervention applies and why, citing only facts present in the report), "recommendations": string[] (2-4 short, concrete next steps for the STAFF MEMBER handling this case — e.g. who to interview, whether to loop in a counselor or Prefect of Discipline, what evidence to verify — never advice addressed to the student)}.` }],
+    system: [{ type: "text" as const, cache_control: { type: "ephemeral" as const }, text: `You triage school bullying reports for a staff member who is about to open the case for the first time — you never determine guilt or discipline. Classify strictly against the Precursor tier (DepEd Memorandum 090, s. 2025) and the three Levels of Disciplinary Intervention defined in DepEd Order No. 006, s. 2026, Section 21:\n${DEPED_SEVERITY_GUIDE}\nMap your classification to severity values: Precursor -> "precursor"; First Level -> "minor"; Second Level -> "serious"; Third Level -> "complex". Use "precursor" ONLY when the report describes light, isolated acts (mild teasing, a one-off joke or prank, a small spat) with no profanity aimed at the learner, no threat, no physical contact, no repeated targeting and no sign the learner is distressed or afraid; when you are unsure between Precursor and First Level, choose "minor". Never use "less_serious" — it is not part of this standard. If the report describes acts spanning more than one level, classify at the HIGHEST level clearly supported by the facts stated. Physical contact (punching, pinching, fighting) is First Level UNLESS the report states it caused an injury, in which case it is at least Second Level ("slight" injury) or Third Level (victim incapacitated or needs 10+ days of medical care) depending on severity of the injury described — if the report doesn't say whether an injury occurred, do not assume one occurred. The student does NOT pick a bullying type — you decide which type(s) the report describes and return them as "bullying_types": "social" (exclusion, being ignored, rumors, turning others against someone), "cyber" (anything done online, by text or through social media, group chats or games), "physical" (hitting, pushing, kicking, taking or damaging belongings), "verbal" (insults, name-calling, mocking, shouting), "emotional" (humiliation, intimidation, threats, manipulation, blackmail), "gender_based" (sexist, homophobic or transphobic slurs, sexual comments, unwanted touching, targeting someone for their gender or SOGIE). Include every type the report clearly describes and no type it does not; use [] if none clearly applies. If the input does list student-selected types or answers, treat them as hints about where to look (a "Cyber" type means check for online sharing/uploading acts, which can reach Third Level), never as the sole basis for a Level. Students may write in English, Filipino/Tagalog, Bisaya/Cebuano, or a mix — read and classify the report correctly regardless of language; write your rationale and recommendations in English for staff-facing consistency. The report content, people involved, setting, and evidence are already shown to staff as their own fields elsewhere on the page — your rationale should NOT restate them, only explain the classification. "Victim's grade/section" and "Oppressor's grade/section" are CLASS IDENTIFIERS (grade level + section name, e.g. "Grade 9 - Crystal"), never a person's name — even if only a section name is given with no grade number, do not treat it as anyone's name or address a recommendation to it as if it were a person (e.g. never write "refer Crystal to the nurse"; write "refer the Grade 9 - Crystal victim to the nurse" or similar instead). ${KEYWORD_PROMPT}\nRespond ONLY with JSON: {"severity": "precursor"|"minor"|"serious"|"complex", "bullying_types": ("social"|"cyber"|"physical"|"verbal"|"emotional"|"gender_based")[], "rationale": string (1-2 sentences: which Level of Disciplinary Intervention applies and why, citing only facts present in the report), "recommendations": string[] (2-4 short, concrete next steps for the STAFF MEMBER handling this case — e.g. who to interview, whether to loop in a counselor or Prefect of Discipline, what evidence to verify — never advice addressed to the student)}.` }],
     messages: [
       {
         role: "user",
-        content: `Report description: ${input.description}\nBullying type(s) selected by student: ${input.bullyingTypes?.length ? input.bullyingTypes.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") : "none selected"}\nVictim's grade/section (a class identifier, not a name): ${input.victimGradeSection || "not given"}\nOppressor's grade/section and, if known, name: ${[input.oppressorGradeSection, input.oppressorName].filter(Boolean).join(" · ") || "not given"}${typeDetailsLines(input.typeDetails)}\nWhen and where: ${input.setting || "not given"}\nStudent flagged immediate danger: ${input.inImmediateDanger ? "yes" : "no"}`,
+        content: `Report description: ${input.description}\nBullying type(s) selected by student: ${input.bullyingTypes?.length ? input.bullyingTypes.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") : "none — decide from the description"}\nVictim's grade/section (a class identifier, not a name): ${input.victimGradeSection || "not given"}\nOppressor's grade/section and, if known, name: ${[input.oppressorGradeSection, input.oppressorName].filter(Boolean).join(" · ") || "not given"}${typeDetailsLines(input.typeDetails)}\nWhen and where: ${input.setting || "not given"}\nStudent flagged immediate danger: ${input.inImmediateDanger ? "yes" : "no"}`,
       },
     ],
   });
@@ -111,6 +122,7 @@ async function classifyWithClaude(input: SeverityInput): Promise<SeverityResult>
   const text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   const parsed = JSON.parse(text) as {
     severity: SeverityLevel;
+    bullying_types?: unknown;
     rationale: string;
     recommendations: string[];
   };
@@ -129,8 +141,15 @@ async function classifyWithClaude(input: SeverityInput): Promise<SeverityResult>
     rationale += ` Raised to ${LEVEL_NAMES[floorLevel]} by keyword scan (${describeHits(hits.filter((h) => h.floor && h.level === floorLevel))}) — please verify against the report.`;
   }
 
+  // Keep only valid types, in a stable order. If Claude gave none we can use,
+  // fall back to the keyword route rather than leaving the report untyped.
+  const claudeTypes = Array.isArray(parsed.bullying_types)
+    ? BULLYING_TYPE_ORDER.filter((t) => (parsed.bullying_types as unknown[]).includes(t))
+    : [];
+
   return {
     severity,
+    bullyingTypes: claudeTypes.length ? claudeTypes : inferBullyingTypes(input.description),
     rationale,
     recommendations: [...parsed.recommendations, DISCLAIMER],
     modelVersion: model,
@@ -193,12 +212,13 @@ function heuristicClassify(input: SeverityInput): SeverityResult {
     levelName = LEVEL_NAMES[3];
   }
 
-  // The heuristic's Level is decided by keywords — the bullying-type tags
-  // don't change that here (that kind of holistic weighing is what
-  // classifyWithClaude is for). Still surface them to staff since the
-  // student took the time to select them.
-  const typesNote = input.bullyingTypes?.length
-    ? ` Student-tagged type(s): ${input.bullyingTypes.map((t) => BULLYING_TYPE_LABELS[t]).join(", ")}.`
+  // The type(s) come from the keyword lists too (see inferBullyingTypes); a
+  // student-selected type, if any, is kept and added.
+  const bullyingTypes = BULLYING_TYPE_ORDER.filter(
+    (t) => input.bullyingTypes?.includes(t) || inferBullyingTypes(input.description).includes(t),
+  );
+  const typesNote = bullyingTypes.length
+    ? ` Detected type(s): ${bullyingTypes.map((t) => BULLYING_TYPE_LABELS[t]).join(", ")}.`
     : "";
 
   const matchedNote = hits.length ? ` Matched: ${describeHits(hits.filter((h) => h.level === level))}.` : "";
@@ -209,6 +229,7 @@ function heuristicClassify(input: SeverityInput): SeverityResult {
 
   return {
     severity,
+    bullyingTypes,
     rationale,
     recommendations: [...STAFF_NEXT_STEPS[severity], DISCLAIMER],
     modelVersion: "heuristic-fallback",

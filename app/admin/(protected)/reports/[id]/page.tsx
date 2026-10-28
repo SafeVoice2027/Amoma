@@ -265,7 +265,7 @@ export default async function AdminReportDetailPage({
               {bully && (
                 <>
                   <Field
-                    label="Type of bullying"
+                    label="Type of bullying (AI-detected)"
                     value={bully.bullying_types.map((t) => BULLYING_TYPE_LABELS[t]).join(", ") || "—"}
                   />
                   {describeTypeDetails(bully.type_details).map((d) => (

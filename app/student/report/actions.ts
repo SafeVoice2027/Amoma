@@ -223,9 +223,22 @@ export async function submitBullyReport(formData: FormData): Promise<SubmitBully
     recommendation: assessment.recommendations.join("\n"),
     model_version: assessment.modelVersion,
   });
+  // The student no longer picks a type, so the type(s) found by the classifier
+  // are what file this report into the bullying-type folders (report_type_files
+  // reads report_bully_details.bullying_types) — a student-selected type, if
+  // one ever arrives, is left alone.
+  const detectedTypes = bullyingTypes.length ? bullyingTypes : assessment.bullyingTypes;
+  if (detectedTypes.length && !bullyingTypes.length) {
+    const { error: typesError } = await service
+      .from("report_bully_details")
+      .update({ bullying_types: detectedTypes })
+      .eq("report_id", report.id);
+    if (typesError) console.error("[submitBullyReport] failed to save detected bullying types", typesError);
+  }
+
   const { error: severityError } = await service
     .from("reports")
-    .update({ severity: assessment.severity })
+    .update({ severity: assessment.severity, ...(detectedTypes.length ? { category: detectedTypes[0] } : {}) })
     .eq("id", report.id);
   if (severityError) console.error("[submitBullyReport] failed to save severity", severityError);
 
