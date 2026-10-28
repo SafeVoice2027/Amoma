@@ -105,6 +105,10 @@ export const ceb: Record<MessageKey, string> = {
   "trend.ongoing": "Gihimo pa",
   "trend.resolved": "Naresolba",
   "trend.week": "Semana {n}",
+  "trend.mine": "Imong mga report",
+  "trend.school": "Tanang report sa imong eskwelahan",
+  "trend.schoolResolvedPct": "sa tanang report sa imong eskwelahan ang naresolba na",
+  "trend.schoolNotEnough": "Wala pay igong report aron ipakita ang numero sa tibuok eskwelahan.",
   "trend.none": "Wala ka pay nahatag nga report.",
 
   "dc.title": "Pagsusi sa Kaluwasan",

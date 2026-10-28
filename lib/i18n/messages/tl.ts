@@ -105,6 +105,10 @@ export const tl: Record<MessageKey, string> = {
   "trend.ongoing": "Isinasagawa",
   "trend.resolved": "Naresolba",
   "trend.week": "Lingo {n}",
+  "trend.mine": "Iyong mga report",
+  "trend.school": "Lahat ng report sa iyong paaralan",
+  "trend.schoolResolvedPct": "ng lahat ng report sa iyong paaralan ang naresolba na",
+  "trend.schoolNotEnough": "Wala pang sapat na report para ipakita ang numero ng buong paaralan.",
   "trend.none": "Wala ka pang naipapasang report.",
 
   "dc.title": "Pagsusuri ng Kaligtasan",

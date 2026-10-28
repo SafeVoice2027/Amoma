@@ -108,6 +108,10 @@ export const en = {
   "trend.ongoing": "Ongoing",
   "trend.resolved": "Resolved",
   "trend.week": "Wk {n}",
+  "trend.mine": "Your reports",
+  "trend.school": "All reports at your school",
+  "trend.schoolResolvedPct": "of all reports at your school have been resolved",
+  "trend.schoolNotEnough": "Not enough reports yet to show school-wide numbers.",
   "trend.none": "You haven't submitted any reports yet.",
 
   // Safety check

@@ -3,7 +3,7 @@ import { AlertTriangle, User, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ReportsList } from "@/components/reports-list";
-import { TrendChart } from "@/components/trend-chart";
+import { TrendChart, type SchoolStats } from "@/components/trend-chart";
 import { NotificationBell, type NotificationItem } from "@/components/notification-bell";
 import { ReportStatusBell, type ReportStatusItem } from "@/components/report-status-bell";
 import { addFollowup, markAllNotificationsRead } from "@/app/student/actions";
@@ -103,6 +103,24 @@ export default async function StudentHomePage() {
       };
     });
 
+  // School-wide totals (withheld by the database until the school has 10+
+  // reports). Any error — e.g. the migration hasn't run yet — just hides the block.
+  const { data: schoolRows, error: schoolError } = await supabase.rpc("get_school_resolution_stats");
+  if (schoolError) console.error("[student] get_school_resolution_stats failed", schoolError.message);
+  const school = Array.isArray(schoolRows) ? schoolRows[0] : null;
+  const schoolStats: SchoolStats = !school
+    ? null
+    : school.enough
+      ? {
+          enough: true,
+          counts: {
+            resolved: school.resolved_count ?? 0,
+            in_process: school.in_process_count ?? 0,
+            unresolved: school.unresolved_count ?? 0,
+          },
+        }
+      : { enough: false };
+
   const statusCounts = {
     resolved: summaries.filter((s) => s.status === "resolved").length,
     in_process: summaries.filter((s) => s.status === "in_process").length,
@@ -170,7 +188,7 @@ export default async function StudentHomePage() {
       </div>
 
       <div className="mt-10">
-        <TrendChart statusCounts={statusCounts} />
+        <TrendChart statusCounts={statusCounts} schoolStats={schoolStats} />
       </div>
     </div>
   );
