@@ -69,6 +69,7 @@ export function UrgentNotificationBell({
   markAllRead,
   pollAction,
   panelPlacement = "below",
+  hideTrigger = false,
 }: {
   items: UrgentNotificationItem[];
   unreadCount: number;
@@ -82,6 +83,10 @@ export function UrgentNotificationBell({
    *  the button); "right" fits a narrow vertical sidebar (panel opens to
    *  the button's right instead, so it doesn't overflow off-screen). */
   panelPlacement?: "below" | "right";
+  /** Hide the bell icon and its list but keep everything else: the alarm still
+   *  plays for a new Serious / Complex report, and since nobody can open the
+   *  list to clear it, alerts are marked read right after the alarm sounds. */
+  hideTrigger?: boolean;
 }) {
   const [items, setItems] = useState(initialItems);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
@@ -103,6 +108,7 @@ export function UrgentNotificationBell({
       } catch {
         // Ignore — e.g. AudioContext blocked. The visual alert still shows.
       }
+      if (hideTrigger) startTransition(markAllRead);
     }
     // Intentionally only the server-rendered snapshot — the poll effect
     // below is what handles everything from here on.
@@ -133,10 +139,14 @@ export function UrgentNotificationBell({
         } catch {
           // Ignore — e.g. AudioContext blocked. The visual alert still shows.
         }
+        if (hideTrigger) startTransition(markAllRead);
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollAction]);
+
+  if (hideTrigger) return null;
 
   const showAlert = unreadCount > 0 && !dismissed;
 

@@ -62,6 +62,9 @@ export interface Profile {
   // Student's chosen app language ('en' | 'tl' | 'ceb'); null = never chosen.
   // See supabase/migrations/0028_profile_language.sql. Absent until it's run.
   language?: string | null;
+  // Only reports filed after this can show as unread (red dot) for this account.
+  // See supabase/migrations/0031_report_unread_tracking.sql. Absent until it's run.
+  unread_since?: string | null;
 }
 
 export interface Report {

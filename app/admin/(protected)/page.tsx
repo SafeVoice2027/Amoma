@@ -8,6 +8,7 @@ import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
 import { SeverityReportBoard } from "@/components/severity-report-board";
 import { formatReference } from "@/lib/reports/case-id";
+import { fetchUnreadReportIds } from "@/lib/reports/unread";
 import { TypeFileBrowser } from "@/components/type-file-browser";
 import type { Profile, ReportTypeFile, StaffReportsView, UserRole } from "@/types/database";
 
@@ -144,6 +145,8 @@ export default async function AdminHomePage() {
     : { data: [] as Pick<Profile, "id" | "full_name">[] };
   const staffNames = new Map((staffProfiles ?? []).map((s) => [s.id, s.full_name ?? "Staff member"]));
 
+  const unreadIds = await fetchUnreadReportIds(supabase, profile);
+
   const { openCases, inProgress, resolved30d, avgResolutionDays } = computeStats(allReports);
   const recentReporterCounts = countRecentReportsByReporter(allReports);
 
@@ -156,6 +159,7 @@ export default async function AdminHomePage() {
       status: r.status,
       flagged: r.immediate_danger,
       submittedAt: r.created_at,
+      unread: unreadIds.has(r.id),
       assignedName: r.assigned_staff_id ? (staffNames.get(r.assigned_staff_id) ?? "Staff member") : null,
       reporterRecentCount: recentCount && recentCount >= 2 ? recentCount : null,
     };
@@ -181,6 +185,7 @@ export default async function AdminHomePage() {
     severity: r.severity,
     isAnonymous: r.is_anonymous,
     createdAt: r.created_at,
+    unread: unreadIds.has(r.id),
   }));
 
   return (

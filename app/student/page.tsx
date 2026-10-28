@@ -103,25 +103,6 @@ export default async function StudentHomePage() {
       };
     });
 
-  // Reports This Month, bucketed into simple 7-day chunks starting from the
-  // 1st (Week 1 = days 1-7, Week 2 = 8-14, ...) rather than calendar weeks —
-  // avoids a partial first/last week and keeps every bucket's width uniform.
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const weekCount = Math.ceil(daysInMonth / 7);
-  const days = Array.from({ length: weekCount }, (_, i) => {
-    const startDay = i * 7 + 1;
-    const endDay = Math.min(startDay + 6, daysInMonth);
-    const rangeStart = new Date(year, month, startDay, 0, 0, 0, 0);
-    const rangeEnd = new Date(year, month, endDay, 23, 59, 59, 999);
-    const inRange = (d: Date) => d >= rangeStart && d <= rangeEnd;
-    return {
-      label: t("trend.week", { n: i + 1 }),
-      bully: (reports ?? []).filter((r) => r.type === "bully" && inRange(new Date(r.created_at))).length,
-    };
-  });
   const statusCounts = {
     resolved: summaries.filter((s) => s.status === "resolved").length,
     in_process: summaries.filter((s) => s.status === "in_process").length,
@@ -189,7 +170,7 @@ export default async function StudentHomePage() {
       </div>
 
       <div className="mt-10">
-        <TrendChart days={days} statusCounts={statusCounts} />
+        <TrendChart statusCounts={statusCounts} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, TriangleAlert } from "lucide-react";
 import type { ReportCategory, ReportStatus } from "@/types/database";
 
 // Must match RECENT_REPORTER_WINDOW_DAYS in app/admin/page.tsx, which is
@@ -13,6 +13,8 @@ export interface CaseRow {
   id: string;
   caseId: string;
   category: ReportCategory | null;
+  // Filed since this viewer last looked and not yet opened by them — red dot.
+  unread?: boolean;
   status: ReportStatus;
   flagged: boolean;
   submittedAt: string;
@@ -49,6 +51,10 @@ const STATUS_LABELS: Record<ReportStatus, string> = {
   resolved: "Resolved",
 };
 
+// How many cases show before "View all" — keeps the page short; one button
+// expands the full list and the same button collapses it again.
+const PREVIEW_COUNT = 8;
+
 type CategoryFilter = "all" | ReportCategory;
 type StatusFilter = "all" | ReportStatus;
 type SortOrder = "newest" | "oldest" | "flagged";
@@ -67,6 +73,7 @@ export function CaseOverviewTable({
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortOrder>("newest");
+  const [showAll, setShowAll] = useState(false);
 
   const visible = useMemo(() => {
     let result = rows;
@@ -88,6 +95,9 @@ export function CaseOverviewTable({
     return result;
   }, [rows, search, categoryFilter, statusFilter, sort]);
 
+  const canCollapse = visible.length > PREVIEW_COUNT;
+  const shown = showAll || !canCollapse ? visible : visible.slice(0, PREVIEW_COUNT);
+
   return (
     <div>
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -100,6 +110,8 @@ export function CaseOverviewTable({
             { value: "cyber", label: "Cyber" },
             { value: "verbal", label: "Verbal" },
             { value: "physical", label: "Physical" },
+            { value: "emotional", label: "Emotional" },
+            { value: "gender_based", label: "Gender-based" },
             { value: "conflict", label: "Conflict" },
           ]}
         />
@@ -136,7 +148,7 @@ export function CaseOverviewTable({
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => (
+            {shown.map((row) => (
               <tr
                 key={row.id}
                 className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-background)]"
@@ -146,6 +158,12 @@ export function CaseOverviewTable({
                     href={`${hrefBase}/reports/${row.id}`}
                     className="font-semibold text-[var(--color-brand)] hover:underline"
                   >
+                    {row.unread && (
+                      <span
+                        className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-danger-600)] align-middle"
+                        title="New — not opened yet"
+                      />
+                    )}
                     {row.caseId}
                   </Link>
                   {row.reporterRecentCount ? (
@@ -194,6 +212,30 @@ export function CaseOverviewTable({
           </p>
         )}
       </div>
+
+      {canCollapse && (
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Showing {shown.length} of {visible.length}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            aria-expanded={showAll}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-brand)] hover:bg-[var(--color-background)]"
+          >
+            {showAll ? (
+              <>
+                Hide <ChevronUp size={16} />
+              </>
+            ) : (
+              <>
+                View all ({visible.length}) <ChevronDown size={16} />
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { logout } from "@/app/(auth)/login/actions";
 import { markUrgentNotificationsRead, fetchUrgentAlerts as pollUrgentAlerts } from "@/app/admin/actions";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { fetchUrgentAlerts } from "@/lib/notifications";
+import { fetchUnreadReportIds } from "@/lib/reports/unread";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const profile = await requireAdminOrHandler();
@@ -27,6 +28,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   const { items: urgentItems, unreadCount: unreadUrgentCount } = await fetchUrgentAlerts(supabase, profile.id);
 
+  const unreadReportIds = await fetchUnreadReportIds(supabase, profile);
+
   async function markUrgentRead() {
     "use server";
     await markUrgentNotificationsRead(basePath);
@@ -44,6 +47,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         pollUrgentAlerts={pollUrgentAlerts}
         pendingApprovalsCount={pendingApprovalsCount ?? 0}
         openBugReportsCount={openBugReportsCount ?? 0}
+        hasUnreadReports={unreadReportIds.size > 0}
       />
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
     </div>

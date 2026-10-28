@@ -30,18 +30,20 @@ function NavIcon({
   icon: Icon,
   active,
   count,
+  unreadDot = false,
 }: {
   href: string;
   label: string;
   icon: typeof LayoutGrid;
   active: boolean;
   count?: number;
+  unreadDot?: boolean;
 }) {
   return (
     <Link
       href={href}
-      aria-label={count ? `${label} (${count} pending)` : label}
-      title={count ? `${label} (${count} pending)` : label}
+      aria-label={count ? `${label} (${count} pending)` : unreadDot ? `${label} (new reports)` : label}
+      title={count ? `${label} (${count} pending)` : unreadDot ? `${label} (new reports)` : label}
       className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
         active
           ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]"
@@ -49,6 +51,9 @@ function NavIcon({
       }`}
     >
       <Icon size={19} />
+      {unreadDot && !count && (
+        <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-background)] bg-[var(--color-danger-600)]" />
+      )}
       {!!count && (
         <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-danger-600)] px-1 text-[10px] font-semibold leading-none text-white">
           {count > 9 ? "9+" : count}
@@ -68,6 +73,7 @@ export function AdminSidebar({
   pollUrgentAlerts,
   pendingApprovalsCount,
   openBugReportsCount,
+  hasUnreadReports,
 }: {
   fullName: string;
   isAdmin: boolean;
@@ -78,6 +84,7 @@ export function AdminSidebar({
   pollUrgentAlerts: () => Promise<{ items: UrgentNotificationItem[]; unreadCount: number }>;
   pendingApprovalsCount: number;
   openBugReportsCount: number;
+  hasUnreadReports: boolean;
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -96,6 +103,7 @@ export function AdminSidebar({
         markAllRead={markUrgentRead}
         pollAction={pollUrgentAlerts}
         panelPlacement="right"
+        hideTrigger
       />
       {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => {
         const href = `${basePath}${item.path}`;
@@ -107,6 +115,7 @@ export function AdminSidebar({
             icon={item.icon}
             active={item.path === "" ? pathname === basePath : pathname.startsWith(href)}
             count={item.countKey ? counts[item.countKey] : undefined}
+            unreadDot={item.path === "" && hasUnreadReports}
           />
         );
       })}

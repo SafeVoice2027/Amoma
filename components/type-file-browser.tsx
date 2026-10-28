@@ -20,8 +20,12 @@ const FOLDER_ORDER: BullyingType[] = ["verbal", "cyber", "physical", "social", "
 // reports they've been tagged into — an untagged Teacher just sees six
 // empty folders. A report with several bullying types shows up in each
 // matching folder on purpose; don't de-duplicate across them.
+// Reports listed before "View all" inside an opened folder.
+const PREVIEW_COUNT = 8;
+
 export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile[]; reportHrefBase: string }) {
   const [openType, setOpenType] = useState<BullyingType | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const byType = new Map<BullyingType, ReportTypeFile[]>(FOLDER_ORDER.map((t) => [t, []]));
   for (const row of rows) byType.get(row.bullying_type)?.push(row);
@@ -30,6 +34,7 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
   }
 
   const openRows = openType ? (byType.get(openType) ?? []) : [];
+  const listed = showAll ? openRows : openRows.slice(0, PREVIEW_COUNT);
 
   return (
     <div>
@@ -47,7 +52,10 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
             <button
               key={type}
               type="button"
-              onClick={() => setOpenType(active ? null : type)}
+              onClick={() => {
+                setOpenType(active ? null : type);
+                setShowAll(false);
+              }}
               aria-pressed={active}
               className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors ${
                 active
@@ -72,7 +80,7 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
               <p className="text-sm text-[var(--color-text-muted)]">No reports filed under this type.</p>
             </Card>
           ) : (
-            openRows.map((row) => (
+            listed.map((row) => (
               <Link key={`${row.report_id}-${row.bullying_type}`} href={`${reportHrefBase}/${row.report_id}`}>
                 <Card className="flex items-center justify-between gap-3 transition-shadow hover:shadow-md">
                   <div>
@@ -88,6 +96,16 @@ export function TypeFileBrowser({ rows, reportHrefBase }: { rows: ReportTypeFile
                 </Card>
               </Link>
             ))
+          )}
+          {openRows.length > PREVIEW_COUNT && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              aria-expanded={showAll}
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-brand)] hover:bg-[var(--color-background)]"
+            >
+              {showAll ? "Hide" : `View all (${openRows.length})`}
+            </button>
           )}
         </div>
       )}

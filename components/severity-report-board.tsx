@@ -10,6 +10,8 @@ export interface SeverityBoardRow {
   severity: SeverityLevel | null;
   isAnonymous: boolean;
   createdAt: string;
+  // Not opened yet by this viewer — red dot.
+  unread?: boolean;
 }
 
 // Handlers and Admin triage by urgency, not chronology — the Complex /
@@ -48,6 +50,12 @@ export function SeverityReportBoard({ rows, hrefBase }: { rows: SeverityBoardRow
                   <Card className="flex items-center justify-between transition-shadow hover:shadow-md">
                     <div>
                       <p className="font-medium">
+                        {r.unread && (
+                          <span
+                            className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-danger-600)] align-middle"
+                            title="New — not opened yet"
+                          />
+                        )}
                         {r.caseId} · {r.type === "bully" ? "Bullying report" : "Conflict report"}
                         {r.isAnonymous && (
                           <span className="ml-2 text-sm font-normal text-[var(--color-text-muted)]">

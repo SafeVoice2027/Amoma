@@ -11,6 +11,7 @@ import { StaffStageChecklist } from "@/components/staff-stage-checklist";
 import { addFollowup, revealIdentity, updateReportStatus } from "@/app/admin/actions";
 import { advanceReportStage, revertReportStage } from "@/lib/reports/stage-progress";
 import { buildFollowupAuthorLabels } from "@/lib/reports/followup-labels";
+import { markReportRead } from "@/lib/reports/unread";
 import { BULLYING_TYPE_LABELS, describeTypeDetails, formatSetting } from "@/lib/reports/bullying-types";
 import type {
   AiAssessment,
@@ -83,6 +84,9 @@ export default async function AdminReportDetailPage({
   const report = await fetchReport(supabase, id);
 
   if (!report) notFound();
+
+  // Opening the report clears its red dot for this viewer.
+  await markReportRead(supabase, profile.id, id);
 
   const [
     { data: bully },
