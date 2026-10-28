@@ -28,7 +28,7 @@ export type BullyingTypeDetails = Partial<Record<BullyingType, { choices: string
 // Which Admin position an is_handler profile holds. Only the Learner
 // Formation Officer tags teachers — see
 // supabase/migrations/0026_admin_position_lfo_tags.sql.
-export type AdminPosition = "learner_formation_officer" | "school_head";
+export type AdminPosition = "learner_formation_officer" | "guidance_counselor" | "school_head";
 export type NotificationChannel = "push" | "sms" | "email";
 export type NotificationUrgency = "normal" | "high";
 // See supabase/migrations/0003_add_bug_reports.sql.

@@ -147,6 +147,7 @@ export function AccountRow({
                   Select a position
                 </option>
                 <option value="learner_formation_officer">Learner Formation Officer — assesses and handles cases</option>
+                <option value="guidance_counselor">Guidance Counselor — handles Serious and Complex cases</option>
                 <option value="school_head">School Head — views cases, leads Complex cases</option>
               </select>
             </div>

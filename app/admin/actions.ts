@@ -209,7 +209,8 @@ export async function setAdminPosition(
 ): Promise<{ error: string | null }> {
   const admin = await getCurrentProfile();
   if (!admin || admin.role !== "admin") return { error: "Not authorized." };
-  if (position !== "learner_formation_officer" && position !== "school_head") return { error: "Invalid position." };
+  const positions: AdminPosition[] = ["learner_formation_officer", "guidance_counselor", "school_head"];
+  if (!positions.includes(position)) return { error: "Invalid position." };
 
   const supabase = await createClient();
   const { data: target } = await supabase.from("profiles").select("role, is_handler").eq("id", profileId).single();
