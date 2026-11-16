@@ -30,17 +30,6 @@ const ROLE_TABS: {
     passwordLabel: "Password",
     submitLabel: "Log In Anonymously",
   },
-  {
-    role: "staff",
-    label: "Staff",
-    heading: "Teacher / Counselor Log In",
-    subtitle: "Log in with your DepEd email or Employee Number. Accounts require admin approval.",
-    idLabel: "Staff Email or Employee Number",
-    idType: "text",
-    idPlaceholder: "you@deped.gov.ph or Employee Number",
-    passwordLabel: "Password",
-    submitLabel: "Log in",
-  },
 ];
 
 const initialState: LoginState = { error: null };
@@ -54,36 +43,18 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const [role, setRole] = useState<UserRole>("student");
+  const role: UserRole = "student";
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState(login, initialState);
   const next = useSearchParams().get("next") ?? "";
-  const tab = ROLE_TABS.find((t) => t.role === role)!;
+  const tab = ROLE_TABS[0];
 
   return (
     <Card className="!p-4">
-      <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-background)] p-1">
-        {ROLE_TABS.map((t) => (
-          <button
-            key={t.role}
-            type="button"
-            onClick={() => setRole(t.role)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              role === t.role
-                ? "bg-[var(--color-brand)] text-white shadow-sm"
-                : "text-[var(--color-text-muted)]"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
+      {/* Students don't sign themselves up — the school creates their account
+          and gives them their login. Staff (Admins) log in at /admin/login. */}
       <p className="mb-3 text-center text-sm text-[var(--color-text-muted)]">
-        Don&apos;t have an account?{" "}
-        <Link href="/signup" className="font-medium text-[var(--color-brand)]">
-          Request Access
-        </Link>
+        Your school gives you your login. Can&apos;t log in? Ask your school.
       </p>
 
       <h1 className="text-lg font-semibold">{tab.heading}</h1>

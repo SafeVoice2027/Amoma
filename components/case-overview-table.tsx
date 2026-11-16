@@ -18,7 +18,6 @@ export interface CaseRow {
   status: ReportStatus;
   flagged: boolean;
   submittedAt: string;
-  assignedName: string | null;
   // Purely mechanical count (not a credibility judgment — see app/admin/page.tsx)
   // of reports from the same reporter in the last 7 days. Set only when >= 2.
   reporterRecentCount?: number | null;
@@ -112,7 +111,6 @@ export function CaseOverviewTable({
             { value: "physical", label: "Physical" },
             { value: "emotional", label: "Emotional" },
             { value: "gender_based", label: "Gender-based" },
-            { value: "conflict", label: "Conflict" },
           ]}
         />
         <Select
@@ -144,7 +142,6 @@ export function CaseOverviewTable({
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Submitted</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Assigned</th>
             </tr>
           </thead>
           <tbody>
@@ -198,9 +195,6 @@ export function CaseOverviewTable({
                   ) : (
                     <span className="text-[var(--color-text)]">{STATUS_LABELS[row.status]}</span>
                   )}
-                </td>
-                <td className="px-4 py-3 text-[var(--color-text-muted)]">
-                  {row.assignedName ?? "Unassigned"}
                 </td>
               </tr>
             ))}

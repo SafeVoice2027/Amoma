@@ -56,7 +56,7 @@ const CATEGORY_BAR_COLORS: Record<ReportCategory, string> = {
   conflict: "var(--color-accent-700)",
 };
 
-const CATEGORY_ORDER: ReportCategory[] = ["social", "cyber", "verbal", "physical", "emotional", "gender_based", "conflict"];
+const CATEGORY_ORDER: ReportCategory[] = ["social", "cyber", "verbal", "physical", "emotional", "gender_based"];
 
 const SEVERITY_LABELS: Record<SeverityLevel, string> = {
   precursor: "Precursor",
@@ -91,6 +91,11 @@ const STATUS_BAR_COLORS: Record<ReportStatus, string> = {
 const STATUS_ORDER: ReportStatus[] = ["unresolved", "in_process", "resolved"];
 
 const WEEKS_TO_SHOW = 8;
+
+// A grade with fewer reports than this isn't shown as a number — in a small
+// group even a count can point at who reported. Same idea as the school-wide
+// resolution rate on the student home.
+const MIN_GROUP_SIZE = 10;
 
 // Counts per known key only — callers handle the "no value set" (null)
 // case separately, since each caller labels it differently ("Pending").
@@ -138,7 +143,6 @@ function computeWeeklyTrend(reports: ReportRow[]) {
     return {
       label,
       bully: inWeek.filter((r) => r.type === "bully").length,
-      conflict: inWeek.filter((r) => r.type === "conflict").length,
     };
   });
 }
@@ -148,6 +152,18 @@ export default async function AdminAnalyticsPage() {
   const supabase = await createClient();
 
   const reports = await fetchReports(supabase);
+
+  // The reporter's grade when each report was filed (reports.grade_level, from
+  // migration 0034). If the column doesn't exist yet the card is left out.
+  const { data: gradeRows, error: gradeError } = await supabase.from("reports").select("grade_level");
+  const gradeCounts = new Map<number, number>();
+  let noGradeCount = 0;
+  for (const r of (gradeRows ?? []) as { grade_level: number | null }[]) {
+    if (r.grade_level) gradeCounts.set(r.grade_level, (gradeCounts.get(r.grade_level) ?? 0) + 1);
+    else noGradeCount++;
+  }
+  const gradesToShow = [...new Set([7, 8, 9, 10, ...gradeCounts.keys()])].sort((a, b) => a - b);
+  const gradeMax = Math.max(1, ...[...gradeCounts.values()].filter((n) => n >= MIN_GROUP_SIZE));
 
   const total = reports.length;
   const flagged = reports.filter((r) => r.immediate_danger).length;
@@ -173,7 +189,7 @@ export default async function AdminAnalyticsPage() {
   const statusMax = Math.max(1, ...statusCounts.map((c) => c.count));
 
   const weeklyTrend = computeWeeklyTrend(reports);
-  const weeklyMax = Math.max(1, ...weeklyTrend.flatMap((w) => [w.bully, w.conflict]));
+  const weeklyMax = Math.max(1, ...weeklyTrend.map((w) => w.bully));
 
   return (
     <div>
@@ -243,10 +259,6 @@ export default async function AdminAnalyticsPage() {
               <span className="h-2 w-2 rounded-full bg-[var(--color-primary-500)]" />
               Bullying
             </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[var(--color-accent-500)]" />
-              Conflict
-            </span>
           </div>
           <div className="flex h-32 items-end justify-between gap-2">
             {weeklyTrend.map((w) => (
@@ -256,16 +268,48 @@ export default async function AdminAnalyticsPage() {
                     className="w-2.5 rounded-t bg-[var(--color-primary-500)]"
                     style={{ height: `${(w.bully / weeklyMax) * 100}%`, minHeight: w.bully > 0 ? "2px" : 0 }}
                   />
-                  <div
-                    className="w-2.5 rounded-t bg-[var(--color-accent-500)]"
-                    style={{ height: `${(w.conflict / weeklyMax) * 100}%`, minHeight: w.conflict > 0 ? "2px" : 0 }}
-                  />
                 </div>
                 <span className="text-[10px] text-[var(--color-text-muted)]">{w.label}</span>
               </div>
             ))}
           </div>
         </Card>
+
+        {!gradeError && (
+          <Card>
+            <h2 className="mb-1 text-lg font-semibold">By grade level</h2>
+            <p className="mb-4 text-xs text-[var(--color-text-muted)]">
+              The reporter&apos;s grade when the report was filed. Grades with fewer than {MIN_GROUP_SIZE} reports aren&apos;t
+              shown, so no one can be identified.
+            </p>
+            <div className="space-y-3">
+              {gradesToShow.map((grade) => {
+                const n = gradeCounts.get(grade) ?? 0;
+                return (
+                  <div key={grade} className="flex items-center gap-3">
+                    <span className="w-20 flex-shrink-0 text-sm text-[var(--color-text-muted)]">Grade {grade}</span>
+                    {n >= MIN_GROUP_SIZE ? (
+                      <>
+                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background)]">
+                          <div
+                            className="h-full rounded-full bg-[var(--color-primary-500)]"
+                            style={{ width: `${(n / gradeMax) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-6 flex-shrink-0 text-right text-sm font-medium">{n}</span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-[var(--color-text-muted)]">Not enough data</span>
+                    )}
+                  </div>
+                );
+              })}
+              {noGradeCount > 0 && (
+                <p className="pt-1 text-xs text-[var(--color-text-muted)]">Grade not recorded: {noGradeCount}</p>
+              )}
+            </div>
+          </Card>
+        )}
       </div>
 
       {total === 0 && (

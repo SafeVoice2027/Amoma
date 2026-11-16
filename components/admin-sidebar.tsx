@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, ClipboardList, Users, Settings } from "lucide-react";
+import { LayoutGrid, FileText, Bug, MessageSquare, BarChart3, ClipboardList, Users, GraduationCap, Settings } from "lucide-react";
 import { AccountSettingsPanel } from "@/components/account-settings-panel";
 import { UrgentNotificationBell, type UrgentNotificationItem } from "@/components/urgent-notification-bell";
 
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { path: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
   { path: "/overview", label: "Reports overview", icon: ClipboardList, adminOnly: false, countKey: null },
   { path: "/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
+  { path: "/students", label: "Import students", icon: GraduationCap, adminOnly: false, countKey: null },
 ];
 
 function NavIcon({

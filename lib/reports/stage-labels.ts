@@ -1,6 +1,6 @@
 import type { ReportStage, ReportStageProgress } from "@/types/database";
 
-// Case Assessment -> Ongoing Action -> Case Closed. See
+// Case Assessment -> Ongoing Action -> Case Resolved. See
 // supabase/migrations/0029_three_step_case_flow.sql — the enum member names
 // are unchanged ('case_filed', 'investigation', 'case_closed'): 'investigation'
 // is the Ongoing Action step, and 'meeting' (the retired Scheduling step) is
@@ -11,7 +11,7 @@ export const STAGE_TITLES: Record<ReportStage, string> = {
   case_filed: "Case Assessment",
   investigation: "Ongoing Action",
   meeting: "Ongoing Action", // legacy alias — see normalizeStage
-  case_closed: "Case Closed",
+  case_closed: "Case Resolved",
 };
 
 // A report that was still at the old Scheduling step before 0029 ran counts as

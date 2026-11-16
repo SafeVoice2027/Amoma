@@ -65,6 +65,11 @@ export interface Profile {
   // Only reports filed after this can show as unread (red dot) for this account.
   // See supabase/migrations/0031_report_unread_tracking.sql. Absent until it's run.
   unread_since?: string | null;
+  // Set from the SF1 import (see supabase/migrations/0034_student_grade_and_first_login.sql).
+  grade_level?: number | null;
+  section?: string | null;
+  // True until a school-created student has chosen their own password or kept the school's.
+  must_choose_password?: boolean;
 }
 
 export interface Report {
@@ -84,6 +89,8 @@ export interface Report {
   // Sequential report number — see StaffReportsView below.
   case_year?: number | null;
   case_seq?: number | null;
+  // Reporter's grade when the report was filed — for aggregate stats only.
+  grade_level?: number | null;
 }
 
 // visible_reporter_id is `reporter_id` when the report isn't anonymous and

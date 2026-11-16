@@ -9,7 +9,7 @@ import { useT } from "@/components/i18n-provider";
 import type { Translate } from "@/lib/i18n/translate";
 import type { ReportStage, ReportStageProgress, SeverityLevel } from "@/types/database";
 
-// Case Assessment -> Ongoing Action -> Case Closed.
+// Case Assessment -> Ongoing Action -> Case Resolved.
 // See supabase/migrations/0029_three_step_case_flow.sql.
 // Stage titles are translated at render time (stage.<id> in lib/i18n/messages).
 const STAGES: { id: ReportStage; icon: LucideIcon }[] = [
@@ -123,7 +123,7 @@ export function ReportStageTracker({
   // moved past icon i, animating while icon i is the active stage we're
   // working toward, and upcoming (plain grey track) otherwise. The very
   // last segment locks solid once the case is actually closed, rather than
-  // animating forever while "Case Closed" just sits as the active stage.
+  // animating forever while "Case Resolved" just sits as the active stage.
   function segmentState(i: number): "completed" | "active" | "upcoming" {
     if (currentIndex > i) return "completed";
     if (currentIndex === i) return i === LAST && closed ? "completed" : "active";

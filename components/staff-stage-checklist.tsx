@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { STAGE_ORDER, normalizeStage } from "@/lib/reports/stage-labels";
 import type { ReportStage, ReportStageProgress } from "@/types/database";
 
-// Case Assessment -> Ongoing Action -> Case Closed.
+// Case Assessment -> Ongoing Action -> Case Resolved.
 // See supabase/migrations/0029_three_step_case_flow.sql.
 const CHECKLIST_ITEMS: { stage: ReportStage; label: string; hint: string }[] = [
   { stage: "case_filed", label: "Case Assessment", hint: "within 24 hours" },

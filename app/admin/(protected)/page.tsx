@@ -21,7 +21,6 @@ type ReportRow = Pick<
   | "category"
   | "is_anonymous"
   | "immediate_danger"
-  | "assigned_staff_id"
   | "created_at"
   | "updated_at"
   | "visible_reporter_id"
@@ -41,7 +40,7 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
   const { data, error } = await supabase
     .from("staff_reports_view")
     .select(
-      "id, type, status, severity, category, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id, case_year, case_seq",
+      "id, type, status, severity, category, is_anonymous, immediate_danger, created_at, updated_at, visible_reporter_id, case_year, case_seq",
     )
     .order("created_at", { ascending: false })
     .returns<ReportRow[]>();
@@ -53,7 +52,7 @@ async function fetchReports(supabase: Awaited<ReturnType<typeof createClient>>):
   const fallback = await supabase
     .from("staff_reports_view")
     .select(
-      "id, type, status, severity, is_anonymous, immediate_danger, assigned_staff_id, created_at, updated_at, visible_reporter_id",
+      "id, type, status, severity, is_anonymous, immediate_danger, created_at, updated_at, visible_reporter_id",
     )
     .order("created_at", { ascending: false })
     .returns<Omit<ReportRow, "category" | "case_year" | "case_seq">[]>();
@@ -139,12 +138,6 @@ export default async function AdminHomePage() {
     .returns<ReportTypeFile[]>();
   if (typeFilesError) console.error("[admin overview] report_type_files query failed", typeFilesError);
 
-  const staffIds = [...new Set(allReports.map((r) => r.assigned_staff_id).filter((id): id is string => !!id))];
-  const { data: staffProfiles } = staffIds.length
-    ? await supabase.from("profiles").select("id, full_name").in("id", staffIds).returns<Pick<Profile, "id" | "full_name">[]>()
-    : { data: [] as Pick<Profile, "id" | "full_name">[] };
-  const staffNames = new Map((staffProfiles ?? []).map((s) => [s.id, s.full_name ?? "Staff member"]));
-
   const unreadIds = await fetchUnreadReportIds(supabase, profile);
 
   const { openCases, inProgress, resolved30d, avgResolutionDays } = computeStats(allReports);
@@ -160,7 +153,6 @@ export default async function AdminHomePage() {
       flagged: r.immediate_danger,
       submittedAt: r.created_at,
       unread: unreadIds.has(r.id),
-      assignedName: r.assigned_staff_id ? (staffNames.get(r.assigned_staff_id) ?? "Staff member") : null,
       reporterRecentCount: recentCount && recentCount >= 2 ? recentCount : null,
     };
   });

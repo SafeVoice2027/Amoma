@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, User, ArrowRight } from "lucide-react";
+import { AlertTriangle, User, ArrowRight, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ReportsList } from "@/components/reports-list";
@@ -172,6 +172,25 @@ export default async function StudentHomePage() {
               <p className="mt-2 text-sm font-medium text-[var(--color-primary-700)]">{t("home.bullying.cta")}</p>
             </div>
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-600)] text-white">
+              <ArrowRight size={16} />
+            </span>
+          </div>
+        </Link>
+
+        <Link
+          href="/student/learn"
+          className="block rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition-shadow hover:shadow-md"
+        >
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-100)] text-[var(--color-primary-700)]">
+              <BookOpen size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold">{t("home.learn.title")}</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">{t("home.learn.desc")}</p>
+              <p className="mt-2 text-sm font-medium text-[var(--color-primary-700)]">{t("home.learn.cta")}</p>
+            </div>
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-background)] text-[var(--color-text-muted)]">
               <ArrowRight size={16} />
             </span>
           </div>

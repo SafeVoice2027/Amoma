@@ -3,25 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Home, Info, Settings, LogOut, ShieldCheck, HelpCircle } from "lucide-react";
+import { Home, Info, Settings, LogOut, ShieldCheck, HelpCircle, BookOpen } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguagePicker } from "@/components/language-picker";
+import { ChangePassword } from "@/components/change-password";
 import { useT } from "@/components/i18n-provider";
 import type { Language } from "@/lib/i18n/languages";
+import type { ChangePasswordResult } from "@/app/student/actions";
 
 export function BottomNav({
   fullName,
   onSignOut,
   setLanguage,
+  changePassword,
 }: {
   fullName: string;
   onSignOut: () => Promise<void>;
   setLanguage: (lang: Language) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<ChangePasswordResult>;
 }) {
   const { t } = useT();
   const pathname = usePathname();
   const [panel, setPanel] = useState<"info" | "settings" | null>(null);
   const isHome = pathname === "/student";
+  const isLearn = pathname.startsWith("/student/learn");
 
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
@@ -42,6 +47,10 @@ export function BottomNav({
 
               <div className="mt-3">
                 <ThemeToggle />
+              </div>
+
+              <div className="mt-3">
+                <ChangePassword changePassword={changePassword} />
               </div>
 
               <Link
@@ -77,6 +86,16 @@ export function BottomNav({
           }`}
         >
           <Home size={18} />
+        </Link>
+        <Link
+          href="/student/learn"
+          onClick={() => setPanel(null)}
+          aria-label={t("nav.learn")}
+          className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+            isLearn ? "bg-[var(--color-brand)] text-[var(--color-on-brand)]" : "text-neutral-300"
+          }`}
+        >
+          <BookOpen size={18} />
         </Link>
         <button
           type="button"

@@ -42,11 +42,14 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const fullName = String(formData.get("full_name") ?? "").trim();
   const identifier = String(formData.get("identifier") ?? "").trim();
 
-  if (!role || !identifier || (role !== "student" && !fullName)) {
-    return { error: "Please fill in every field.", success: false };
+  // Student accounts are created by the school, not requested by the student.
+  // Enforced here as well as in the UI so the form can't be bypassed.
+  if (role === "student") {
+    return { error: "Student accounts are created by your school. Please ask your school for your login.", success: false };
   }
-  if (role === "student" && !/^\d{6,}$/.test(identifier)) {
-    return { error: "Please enter a valid LRN (numbers only).", success: false };
+
+  if (!role || !identifier || !fullName) {
+    return { error: "Please fill in every field.", success: false };
   }
   // Staff can sign up with either a DepEd email (Teachers, Handlers) or an
   // Employee Number (Handlers only — see supabase/migrations/0013_staff_roster.sql).
@@ -78,21 +81,12 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
 
   const email = emailForSignup(role, identifier);
 
-  // A student whose LRN is on the school's known roster (see
-  // supabase/migrations/0011_student_roster.sql), or a staff signup whose
-  // Employee Number is on the staff roster (see
+  // A staff signup whose Employee Number is on the staff roster (see
   // supabase/migrations/0013_staff_roster.sql), skips the pending queue —
   // Admin only needs to review signups neither roster recognizes.
   let autoApproved = false;
   let isHandler = false;
-  if (role === "student") {
-    const { data: rosterEntry } = await service
-      .from("student_roster")
-      .select("lrn")
-      .eq("lrn", identifier)
-      .maybeSingle();
-    autoApproved = !!rosterEntry;
-  } else if (isEmployeeNumberSignup) {
+  if (isEmployeeNumberSignup) {
     const { data: rosterEntry, error: rosterError } = await service
       .from("staff_roster")
       .select("employee_number")
@@ -122,9 +116,9 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const { error: profileError } = await service.from("profiles").insert({
     id: created.user.id,
     role,
-    full_name: role === "student" ? null : fullName,
-    lrn: role === "student" ? identifier : null,
-    deped_email: role !== "student" && !isEmployeeNumberSignup ? identifier : null,
+    full_name: fullName,
+    lrn: null,
+    deped_email: !isEmployeeNumberSignup ? identifier : null,
     employee_number: isEmployeeNumberSignup ? identifier : null,
     is_handler: isHandler,
     admin_position: isHandler ? "learner_formation_officer" : null,
