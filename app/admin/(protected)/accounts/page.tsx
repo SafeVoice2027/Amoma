@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { PageHeader } from "@/components/ui";
 import { AccountList } from "@/components/account-list";
 import { ApprovalRow } from "@/components/approval-row";
+import { SwitchedOffAccounts } from "@/components/switched-off-accounts";
 import { Card } from "@/components/ui";
 import { canManageAdmins, getAccountManager } from "@/lib/accounts/manager";
 import {
@@ -13,6 +14,7 @@ import {
   setEmployeeNumber,
   setAdminPosition,
   setStudentEnrollment,
+  switchStudentBackOn,
 } from "@/app/admin/actions";
 import type { Sf1Status } from "@/components/account-row";
 import type { Profile, UserRole } from "@/types/database";
@@ -90,6 +92,35 @@ export default async function AccountsPage() {
 
   const manageAdmins = canManageAdmins(manager);
 
+  // Switched-off students (graduated / transferred), newest first.
+  let offQuery = createServiceClient()
+    .from("profiles")
+    .select("id, lrn, grade_level, section, deactivated_reason, deactivated_at")
+    .eq("role", "student")
+    .eq("status", "suspended")
+    .not("lrn", "is", null)
+    .order("deactivated_at", { ascending: false, nullsFirst: false })
+    .limit(500);
+  if (!manager.isDeveloper) offQuery = offQuery.eq("school_id", manager.profile.school_id!);
+  const { data: offData } = await offQuery.returns<
+    {
+      id: string;
+      lrn: string;
+      grade_level: number | null;
+      section: string | null;
+      deactivated_reason: string | null;
+      deactivated_at: string | null;
+    }[]
+  >();
+  const switchedOff = (offData ?? []).map((r) => ({
+    id: r.id,
+    lrn: r.lrn,
+    grade: r.grade_level,
+    section: r.section,
+    reason: r.deactivated_reason,
+    at: r.deactivated_at,
+  }));
+
   // Account requests: the Developer decides every school's; a school's LFO
   // decides their own school's staff requests. Other Admins don't see this.
   let pendingQuery = createServiceClient()
@@ -148,6 +179,8 @@ export default async function AccountsPage() {
         onSetAdminPosition={setAdminPosition}
         onSetEnrollment={setStudentEnrollment}
       />
+
+      <SwitchedOffAccounts students={switchedOff} switchOn={switchStudentBackOn} />
     </div>
   );
 }

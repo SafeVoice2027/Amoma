@@ -194,7 +194,7 @@ export async function changeUserPassword(
 //     the next import)
 //   - "graduated" / "transferred": switch the account off. Nothing is deleted;
 //     the student's reports stay and the account can be switched back on from
-//     the Import students page.
+//     the "Switched-off students" list on the Accounts page.
 // Any Admin may do this for their own school's students; the Developer for any.
 export type StudentEnrollment = "enrolled" | "graduated" | "transferred";
 
@@ -245,6 +245,36 @@ export async function setStudentEnrollment(
   revalidatePath("/developer/accounts");
   revalidatePath("/admin/students");
   revalidatePath("/developer/students");
+  return { error: null };
+}
+
+// Switch a student back on (a transfer that came back, or a mistake). Same
+// people as setStudentEnrollment: any Admin for their own school, the Developer
+// for any.
+export async function switchStudentBackOn(profileId: string): Promise<{ error: string | null }> {
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
+
+  const service = createServiceClient();
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, is_handler, school_id, status")
+    .eq("id", profileId)
+    .maybeSingle<AccountTarget>();
+  if (!target || !canManageStudent(manager, target) || target.status !== "suspended") {
+    return { error: "That student can't be switched back on here." };
+  }
+
+  const { error: banError } = await service.auth.admin.updateUserById(profileId, { ban_duration: "none" });
+  if (banError) return { error: "Couldn't switch the account back on." };
+  const { error } = await service
+    .from("profiles")
+    .update({ status: "approved", deactivated_at: null, deactivated_reason: null })
+    .eq("id", profileId);
+  if (error) return { error: "Couldn't switch the account back on." };
+
+  revalidatePath("/admin/accounts");
+  revalidatePath("/developer/accounts");
   return { error: null };
 }
 

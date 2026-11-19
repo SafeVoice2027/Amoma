@@ -79,7 +79,7 @@ export function AccountRow({
       } else {
         // The row disappears from this list once switched off, so say it up top.
         onNotice(
-          `${profile.lrn} was switched off (${answer}). Nothing was deleted — you can switch them back on from the Import students page.`,
+          `${profile.lrn} was switched off (${answer}). Nothing was deleted — you can switch them back on from the Switched-off students list below.`,
         );
       }
       router.refresh();

@@ -2,14 +2,7 @@ import { requireAdminOrHandler } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PageHeader } from "@/components/ui";
 import { ImportStudents } from "@/components/import-students";
-import { SwitchedOffStudents } from "@/components/switched-off-students";
-import { listSwitchedOffStudents } from "@/lib/students/switched-off";
-import {
-  importStudentBatch,
-  previewStudentImport,
-  switchOffOneStudent,
-  switchOnStudent,
-} from "./actions";
+import { importStudentBatch, previewStudentImport } from "./actions";
 import { schoolForImporter } from "@/lib/students/school";
 
 export default async function ImportStudentsPage() {
@@ -25,11 +18,6 @@ export default async function ImportStudentsPage() {
       <ImportStudents
         storageKey={`amoma-import-history:${profile.id}`}
         actions={{ preview: previewStudentImport, runBatch: importStudentBatch }}
-      />
-      <SwitchedOffStudents
-        students={school ? await listSwitchedOffStudents(school.id) : []}
-        switchOn={switchOnStudent}
-        switchOffOne={switchOffOneStudent}
       />
     </div>
   );

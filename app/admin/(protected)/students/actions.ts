@@ -16,10 +16,9 @@ import { parseSf1 } from "@/lib/students/sf1";
 // importStudentBatch, which the page calls in small batches after the
 // preview is confirmed.
 //
-// The same page also switches student accounts off (graduated / transferred)
-// and back on. Switching off never deletes anything: the account and all its
-// reports stay, the student just can't log in (profile status "suspended" plus
-// a login ban). Only students of the person's own school can be touched.
+// Switching a student off (graduated / transferred) and back on is done from
+// the Accounts page — see setStudentEnrollment / switchStudentBackOn in
+// app/admin/actions.ts.
 
 export interface ImportStudent {
   lrn: string;
@@ -42,8 +41,6 @@ export interface ImportPlan {
   // only, not listed.
   missingNoGrade: number;
 }
-
-export type SwitchOffReason = "graduated" | "transferred" | "other";
 
 export type PreviewResult = { error: string } | { plan: ImportPlan };
 
@@ -308,110 +305,4 @@ export async function importStudentBatch(
   revalidatePath("/developer/accounts");
   revalidatePath("/admin/accounts");
   return { results };
-}
-
-// Block (or allow) the login itself. A banned account can't sign in or refresh
-// its session; the profile status change stops any page that is still open.
-const BAN_FOREVER = "876000h"; // ~100 years
-
-export interface SwitchResult {
-  error?: string;
-  changed: number;
-  skipped: number;
-}
-
-// Switch student accounts off. Only active students of the caller's own school
-// are touched — never staff, Admins or the Developer. Nothing is deleted.
-export async function switchOffStudents(lrns: string[], reason: SwitchOffReason): Promise<SwitchResult> {
-  const importer = await requireImporter();
-  if (!importer) return { error: "Not authorized.", changed: 0, skipped: 0 };
-  if (!Array.isArray(lrns) || lrns.length === 0 || lrns.length > 50) return { error: "Invalid request.", changed: 0, skipped: 0 };
-  if (!["graduated", "transferred", "other"].includes(reason)) return { error: "Invalid reason.", changed: 0, skipped: 0 };
-
-  const service = createServiceClient();
-  const school = await schoolForImporter(service, importer);
-  if (!school) return { error: "Your account isn't linked to a school yet.", changed: 0, skipped: 0 };
-
-  let changed = 0;
-  let skipped = 0;
-  for (const lrn of lrns) {
-    if (!/^\d{12}$/.test(String(lrn))) {
-      skipped++;
-      continue;
-    }
-    const { data: p } = await service
-      .from("profiles")
-      .select("id")
-      .eq("lrn", lrn)
-      .eq("role", "student")
-      .eq("school_id", school.id)
-      .eq("status", "approved")
-      .maybeSingle<{ id: string }>();
-    if (!p) {
-      skipped++;
-      continue;
-    }
-    const { error: banError } = await service.auth.admin.updateUserById(p.id, { ban_duration: BAN_FOREVER });
-    if (banError) {
-      console.error("[switchOffStudents] ban failed", banError.message);
-      skipped++;
-      continue;
-    }
-    const { error } = await service
-      .from("profiles")
-      .update({ status: "suspended", deactivated_at: new Date().toISOString(), deactivated_reason: reason })
-      .eq("id", p.id);
-    if (error) {
-      // Put the login back so the account isn't left half switched off.
-      await service.auth.admin.updateUserById(p.id, { ban_duration: "none" });
-      skipped++;
-      continue;
-    }
-    changed++;
-  }
-
-  revalidatePath("/admin/students");
-  revalidatePath("/developer/students");
-  return { changed, skipped };
-}
-
-// Switch one student back on (a transfer that came back, or a mistake).
-export async function switchOnStudent(lrn: string): Promise<{ error: string | null }> {
-  const importer = await requireImporter();
-  if (!importer) return { error: "Not authorized." };
-  if (!/^\d{12}$/.test(String(lrn))) return { error: "That isn't a valid LRN." };
-
-  const service = createServiceClient();
-  const school = await schoolForImporter(service, importer);
-  if (!school) return { error: "Your account isn't linked to a school yet." };
-
-  const { data: p } = await service
-    .from("profiles")
-    .select("id")
-    .eq("lrn", lrn)
-    .eq("role", "student")
-    .eq("school_id", school.id)
-    .eq("status", "suspended")
-    .maybeSingle<{ id: string }>();
-  if (!p) return { error: "No switched-off student with that LRN." };
-
-  const { error: banError } = await service.auth.admin.updateUserById(p.id, { ban_duration: "none" });
-  if (banError) return { error: "Couldn't switch the account back on." };
-  const { error } = await service
-    .from("profiles")
-    .update({ status: "approved", deactivated_at: null, deactivated_reason: null })
-    .eq("id", p.id);
-  if (error) return { error: "Couldn't switch the account back on." };
-
-  revalidatePath("/admin/students");
-  revalidatePath("/developer/students");
-  return { error: null };
-}
-
-// Switch off ONE student by LRN, e.g. someone who transferred mid-year.
-export async function switchOffOneStudent(lrn: string, reason: SwitchOffReason): Promise<{ error: string | null }> {
-  const res = await switchOffStudents([String(lrn).trim()], reason);
-  if (res.error) return { error: res.error };
-  if (!res.changed) return { error: "No active student with that LRN at your school." };
-  return { error: null };
 }
