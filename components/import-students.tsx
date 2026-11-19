@@ -403,8 +403,8 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
             </div>
           </div>
           <p className="mt-3 text-xs text-[var(--color-text-muted)]">
-            Existing students keep their own password. New accounts get a numbered first password (Amoma0001, Amoma0002 …
-            in LRN order), shown to you on the next screen.
+            Existing students keep their own password. New accounts get a numbered first password (for example Amoma0149, Amoma0150 …
+            in LRN order, continuing from the last number your school used), shown to you on the next screen.
           </p>
 
           {plan.problems.length > 0 && (
@@ -420,8 +420,9 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
               {plan.missingCount > 0 && (
                 <>
                   <strong>{plan.missingCount}</strong> student{plan.missingCount === 1 ? " is" : "s are"} already in
-                  Amoma but not in these files. After the import you&apos;ll be asked about each one: transferred,
-                  graduated, or still enrolled. Nothing is switched off automatically.{" "}
+                  Amoma but not in these files. After the import they&apos;re marked &ldquo;Not in latest SF1&rdquo; on
+                  the Accounts page, where you can open each one and choose still enrolled, graduated or transferred.
+                  Nothing is switched off automatically.{" "}
                 </>
               )}
               {plan.missingNoGrade > 0 && (

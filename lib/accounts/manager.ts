@@ -50,6 +50,12 @@ export function canResetPassword(m: AccountManager, t: AccountTarget): boolean {
   return canManageAdmins(m); // another Admin's password
 }
 
+// Record that a student is still enrolled, or switch them off (graduated /
+// transferred): any Admin, for students of their own school.
+export function canManageStudent(m: AccountManager, t: AccountTarget): boolean {
+  return t.role === "student" && sameSchool(m, t);
+}
+
 // Make someone an Admin, set their position, set their Employee Number.
 export function canManageStaff(m: AccountManager, t: AccountTarget): boolean {
   if (t.role !== "staff" || !sameSchool(m, t) || !canManageAdmins(m)) return false;

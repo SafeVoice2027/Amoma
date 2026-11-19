@@ -62,8 +62,7 @@ export function SwitchedOffStudents({
       </h2>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
         A switched-off student can&apos;t log in. Nothing is deleted: their account and every report they filed stay,
-        and you can switch them back on. For a whole year&apos;s graduates, use the list that appears when you preview
-        next year&apos;s files above.
+        and you can switch them back on. You can also do this from a student&apos;s row on the Accounts page.
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-2">

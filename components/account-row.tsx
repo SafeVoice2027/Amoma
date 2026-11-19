@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { Button, Card } from "@/components/ui";
+import type { StudentEnrollment } from "@/app/admin/actions";
 import type { AdminPosition, UserRole } from "@/types/database";
+
+// Where a student stands against the school's latest SF1 import:
+//   in        — was in it
+//   missing   — wasn't, and nobody has said what happened (needs an answer)
+//   confirmed — wasn't, but an Admin said they're still enrolled
+//   none      — nothing to compare (staff, no grade, or no import yet)
+export type Sf1Status = "in" | "missing" | "confirmed" | "none";
 
 interface AccountProfile {
   id: string;
@@ -13,6 +23,9 @@ interface AccountProfile {
   is_handler: boolean;
   employee_number: string | null;
   admin_position: AdminPosition | null;
+  grade_level: number | null;
+  section: string | null;
+  sf1: Sf1Status;
 }
 
 export function AccountRow({
@@ -24,6 +37,8 @@ export function AccountRow({
   onToggleHandler,
   onSetEmployeeNumber,
   onSetAdminPosition,
+  onSetEnrollment,
+  onNotice,
 }: {
   profile: AccountProfile;
   // You can't change your own Admin status or position; whether you may reset
@@ -35,8 +50,41 @@ export function AccountRow({
   onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
   onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
   onSetAdminPosition: (profileId: string, position: AdminPosition) => Promise<{ error: string | null }>;
+  onSetEnrollment: (profileId: string, answer: StudentEnrollment) => Promise<{ error: string | null }>;
+  onNotice: (text: string | null) => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  // Student enrollment panel (click the student to open it).
+  const isStudent = profile.role === "student";
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [confirming, setConfirming] = useState<"graduated" | "transferred" | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollNote, setEnrollNote] = useState<string | null>(null);
+  const [enrollPending, startEnrollTransition] = useTransition();
+
+  function answerEnrollment(answer: StudentEnrollment) {
+    setEnrollError(null);
+    setEnrollNote(null);
+    setConfirming(null);
+    startEnrollTransition(async () => {
+      const result = await onSetEnrollment(profile.id, answer);
+      if (result.error) {
+        setEnrollError(result.error);
+        return;
+      }
+      if (answer === "enrolled") {
+        setEnrollNote("Saved — marked as still enrolled.");
+      } else {
+        // The row disappears from this list once switched off, so say it up top.
+        onNotice(
+          `${profile.lrn} was switched off (${answer}). Nothing was deleted — you can switch them back on from the Import students page.`,
+        );
+      }
+      router.refresh();
+    });
+  }
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -111,16 +159,38 @@ export function AccountRow({
   return (
     <Card>
       <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate font-medium">
-            {profile.full_name ?? (profile.role === "student" ? "Anonymous student" : "(no name on file)")}
-          </p>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            {profile.role === "student" ? "Student" : "Staff"} ·{" "}
-            {profile.lrn ?? profile.deped_email ?? profile.employee_number}
-            {isSelf ? " · You" : ""}
-          </p>
-        </div>
+        {isStudent ? (
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(!detailsOpen)}
+            aria-expanded={detailsOpen}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{profile.full_name ?? "Anonymous student"}</p>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Student · {profile.lrn}
+                {profile.sf1 === "missing" && (
+                  <span className="ml-2 rounded-full bg-[var(--color-accent-50)] px-2 py-0.5 text-xs text-[var(--color-accent-800)]">
+                    Not in latest SF1
+                  </span>
+                )}
+              </p>
+            </div>
+            <ChevronDown
+              size={16}
+              className={`ml-auto flex-shrink-0 text-[var(--color-text-muted)] transition-transform ${detailsOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+        ) : (
+          <div className="min-w-0">
+            <p className="truncate font-medium">{profile.full_name ?? "(no name on file)"}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Staff · {profile.deped_email ?? profile.employee_number}
+              {isSelf ? " · You" : ""}
+            </p>
+          </div>
+        )}
         {canReset && (
           <Button
             variant="secondary"
@@ -132,6 +202,74 @@ export function AccountRow({
           </Button>
         )}
       </div>
+
+      {isStudent && detailsOpen && (
+        <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4 text-sm">
+          <p>
+            <span className="text-[var(--color-text-muted)]">Grade and section: </span>
+            {profile.grade_level
+              ? `Grade ${profile.grade_level}${profile.section ? ` - ${profile.section}` : ""}`
+              : "Not recorded yet"}
+          </p>
+          <p className="text-[var(--color-text-muted)]">
+            {profile.sf1 === "in" && "In your latest SF1 import."}
+            {profile.sf1 === "missing" && "Not in your latest SF1 import — what happened to this student?"}
+            {profile.sf1 === "confirmed" && "Not in your latest SF1 import, but you marked them as still enrolled."}
+            {profile.sf1 === "none" && "Is this student still enrolled, or did they graduate or transfer?"}
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              disabled={enrollPending}
+              onClick={() => answerEnrollment("enrolled")}
+              className="!min-h-0 !px-3 !py-1.5 !text-sm"
+            >
+              Still enrolled
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={enrollPending}
+              onClick={() => setConfirming("graduated")}
+              className="!min-h-0 !px-3 !py-1.5 !text-sm"
+            >
+              Graduated
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={enrollPending}
+              onClick={() => setConfirming("transferred")}
+              className="!min-h-0 !px-3 !py-1.5 !text-sm"
+            >
+              Transferred
+            </Button>
+          </div>
+
+          {confirming && (
+            <div className="rounded-xl border border-[var(--color-accent-300)] bg-[var(--color-accent-50)] p-3 text-[var(--color-accent-800)]">
+              <p>
+                Switch off <strong>{profile.lrn}</strong> as <strong>{confirming}</strong>? They won&apos;t be able to
+                log in. Their reports stay, and you can switch them back on.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="danger"
+                  disabled={enrollPending}
+                  onClick={() => answerEnrollment(confirming)}
+                  className="!min-h-0 !px-4 !py-2 !text-sm"
+                >
+                  Yes, switch off
+                </Button>
+                <Button variant="secondary" onClick={() => setConfirming(null)} className="!min-h-0 !px-4 !py-2 !text-sm">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {enrollError && <p className="text-[var(--color-danger-600)]">{enrollError}</p>}
+          {enrollNote && <p className="text-green-600">{enrollNote}</p>}
+        </div>
+      )}
 
       {canManage && (
         <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4">

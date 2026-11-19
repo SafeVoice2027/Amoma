@@ -25,9 +25,6 @@ export interface ImportStudent {
   lrn: string;
   grade: number;
   section: string;
-  // Place in the LRN-sorted list of this import (1, 2, 3 ...). A new account's
-  // first password is "Amoma" + this number, e.g. Amoma0001.
-  seq: number;
 }
 
 export interface ImportPlan {
@@ -37,8 +34,9 @@ export interface ImportPlan {
   existingCount: number;
   problems: string[];
   // Active students of this school who had a grade recorded but are NOT in the
-  // files. After the import the page asks about each (transferred, graduated,
-  // still enrolled) — see lib/students/to-check.ts. Counted here only.
+  // files. They are marked "Not in latest SF1" on the Accounts page, where an
+  // Admin records each one as still enrolled, graduated or transferred. Counted
+  // here only.
   missingCount: number;
   // Active students with no grade recorded (never in a register) — counted
   // only, not listed.
@@ -65,12 +63,14 @@ async function requireImporter(): Promise<Profile | null> {
 }
 
 
-// First passwords are numbered in LRN order: Amoma0001, Amoma0002 ... Nine
-// characters, so the student can also keep it past the 8-character minimum. The
-// pattern is guessable, which is why every student is asked on first sign-in to
-// choose their own.
-function firstPassword(seq: number): string {
-  return "Amoma" + String(seq).padStart(4, "0");
+// First passwords are numbered: Amoma0149, Amoma0150 ... Nine characters, so
+// the student can also keep it past the 8-character minimum. The numbers keep
+// counting across imports (schools.last_first_password_number, handed out
+// atomically by next_first_password_number — migration 0037), so a number is
+// never given to two students at the same school. The pattern is guessable,
+// which is why every student is asked on first sign-in to choose their own.
+function firstPassword(n: number): string {
+  return "Amoma" + String(n).padStart(4, "0");
 }
 
 export async function previewStudentImport(formData: FormData): Promise<PreviewResult> {
@@ -113,7 +113,7 @@ export async function previewStudentImport(formData: FormData): Promise<PreviewR
     if (parsed.invalidLrns) problems.push(`${file.name}: ${parsed.invalidLrns} entries that aren't 12-digit LRNs were ignored.`);
     for (const lrn of parsed.lrns) {
       if (byLrn.has(lrn)) problems.push(`LRN ${lrn} appears in more than one file — the first one is used.`);
-      else byLrn.set(lrn, { lrn, grade: parsed.grade, section: parsed.section, seq: 0 });
+      else byLrn.set(lrn, { lrn, grade: parsed.grade, section: parsed.section });
     }
   }
 
@@ -137,12 +137,9 @@ export async function previewStudentImport(formData: FormData): Promise<PreviewR
       `${elsewhere.size} student(s) already have an account at another school, so they are left out.`,
     );
   }
-  // Number everyone in LRN order, lowest first, so a student's number doesn't
-  // depend on which file they came from.
-  const students = all
-    .filter((s) => !elsewhere.has(s.lrn))
-    .sort((a, b) => a.lrn.localeCompare(b.lrn))
-    .map((s, i) => ({ ...s, seq: i + 1 }));
+  // LRN order, lowest first: new accounts are created (and numbered) in this
+  // order, whichever file a student came from.
+  const students = all.filter((s) => !elsewhere.has(s.lrn)).sort((a, b) => a.lrn.localeCompare(b.lrn));
 
   // Year-end cleanup list: this school's active students who aren't in the files.
   const inFiles = new Set(students.map((s) => s.lrn));
@@ -226,9 +223,6 @@ export async function importStudentBatch(
   for (const s of students) {
     const valid =
       /^\d{12}$/.test(s.lrn) &&
-      Number.isInteger(s.seq) &&
-      s.seq >= 1 &&
-      s.seq <= 99999 &&
       Number.isInteger(s.grade) &&
       s.grade >= 1 &&
       s.grade <= 12 &&
@@ -267,7 +261,16 @@ export async function importStudentBatch(
       continue;
     }
 
-    const password = firstPassword(s.seq);
+    // Next number for this school (atomic; never handed out twice).
+    const { data: number, error: numberError } = await service.rpc("next_first_password_number", {
+      p_school_id: school.id,
+    });
+    if (numberError || typeof number !== "number") {
+      console.error("[importStudentBatch] couldn't get the next password number", numberError?.message);
+      results.push({ lrn: s.lrn, status: "failed", note: "Couldn't create a first password." });
+      continue;
+    }
+    const password = firstPassword(number);
     const { data: created, error: authError } = await service.auth.admin.createUser({
       email: `${s.lrn}@lrn.safevoice.internal`,
       password,
@@ -411,37 +414,4 @@ export async function switchOffOneStudent(lrn: string, reason: SwitchOffReason):
   if (res.error) return { error: res.error };
   if (!res.changed) return { error: "No active student with that LRN at your school." };
   return { error: null };
-}
-
-// The page's answer for students who weren't in the latest SF1 files:
-// transferred / graduated / other switch the account off; "enrolled" means
-// they are still here, so the page stops asking about them until the next import.
-export async function answerStudentsToCheck(
-  lrns: string[],
-  answer: SwitchOffReason | "enrolled",
-): Promise<SwitchResult> {
-  if (answer !== "enrolled") return switchOffStudents(lrns, answer);
-
-  const importer = await requireImporter();
-  if (!importer) return { error: "Not authorized.", changed: 0, skipped: 0 };
-  if (!Array.isArray(lrns) || lrns.length === 0 || lrns.length > 50) return { error: "Invalid request.", changed: 0, skipped: 0 };
-
-  const service = createServiceClient();
-  const school = await schoolForImporter(service, importer);
-  if (!school) return { error: "Your account isn't linked to a school yet.", changed: 0, skipped: 0 };
-
-  const valid = lrns.filter((l) => /^\d{12}$/.test(String(l)));
-  const { data, error } = await service
-    .from("profiles")
-    .update({ sf1_confirmed_at: new Date().toISOString() })
-    .eq("role", "student")
-    .eq("school_id", school.id)
-    .eq("status", "approved")
-    .in("lrn", valid)
-    .select("id");
-  if (error) return { error: "Couldn't save that. Please try again.", changed: 0, skipped: lrns.length };
-
-  revalidatePath("/admin/students");
-  revalidatePath("/developer/students");
-  return { changed: data?.length ?? 0, skipped: lrns.length - (data?.length ?? 0) };
 }

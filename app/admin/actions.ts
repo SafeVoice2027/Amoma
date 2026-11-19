@@ -8,6 +8,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import {
   canDecideRequest,
   canManageStaff,
+  canManageStudent,
   canResetPassword,
   getAccountManager,
   type AccountTarget,
@@ -185,6 +186,65 @@ export async function changeUserPassword(
     return { error: "Couldn't update the password. Please try again." };
   }
 
+  return { error: null };
+}
+
+// A student's enrollment, answered from their row on the Accounts page:
+//   - "enrolled": they're still here (stops the "Not in latest SF1" mark until
+//     the next import)
+//   - "graduated" / "transferred": switch the account off. Nothing is deleted;
+//     the student's reports stay and the account can be switched back on from
+//     the Import students page.
+// Any Admin may do this for their own school's students; the Developer for any.
+export type StudentEnrollment = "enrolled" | "graduated" | "transferred";
+
+const SWITCH_OFF_BAN = "876000h"; // ~100 years
+
+export async function setStudentEnrollment(
+  profileId: string,
+  answer: StudentEnrollment,
+): Promise<{ error: string | null }> {
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
+  if (!["enrolled", "graduated", "transferred"].includes(answer)) return { error: "Invalid choice." };
+
+  const service = createServiceClient();
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, is_handler, school_id, status")
+    .eq("id", profileId)
+    .maybeSingle<AccountTarget>();
+  if (!target || !canManageStudent(manager, target) || target.status !== "approved") {
+    return { error: "That student can't be changed here." };
+  }
+
+  if (answer === "enrolled") {
+    const { error } = await service
+      .from("profiles")
+      .update({ sf1_confirmed_at: new Date().toISOString() })
+      .eq("id", profileId);
+    if (error) return { error: "Couldn't save that. Please try again." };
+  } else {
+    const { error: banError } = await service.auth.admin.updateUserById(profileId, { ban_duration: SWITCH_OFF_BAN });
+    if (banError) {
+      console.error("[setStudentEnrollment] ban failed", banError.message);
+      return { error: "Couldn't switch the account off. Please try again." };
+    }
+    const { error } = await service
+      .from("profiles")
+      .update({ status: "suspended", deactivated_at: new Date().toISOString(), deactivated_reason: answer })
+      .eq("id", profileId);
+    if (error) {
+      // Put the login back so the account isn't left half switched off.
+      await service.auth.admin.updateUserById(profileId, { ban_duration: "none" });
+      return { error: "Couldn't switch the account off. Please try again." };
+    }
+  }
+
+  revalidatePath("/admin/accounts");
+  revalidatePath("/developer/accounts");
+  revalidatePath("/admin/students");
+  revalidatePath("/developer/students");
   return { error: null };
 }
 
