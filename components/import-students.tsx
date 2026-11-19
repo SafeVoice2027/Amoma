@@ -72,10 +72,40 @@ function timeLeft(at: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// "Grade 7 - Dalton" -> [7, "Dalton"], so sections sort by grade then name.
+function sectionKey(gradeSection: string): [number, string] {
+  const m = gradeSection.match(/^Grade (\d+)\s*-\s*(.*)$/);
+  return m ? [Number(m[1]), m[2]] : [999, gradeSection];
+}
+
+// Grade, then section, then LRN — so each section's slips sit together and can
+// be handed to that section's adviser in one go.
+function sortRows(rows: ListRow[]): ListRow[] {
+  return [...rows].sort((a, b) => {
+    const [ga, sa] = sectionKey(a.gradeSection);
+    const [gb, sb] = sectionKey(b.gradeSection);
+    return ga - gb || sa.localeCompare(sb) || a.lrn.localeCompare(b.lrn);
+  });
+}
+
+function groupBySection(rows: ListRow[]): { label: string; rows: ListRow[] }[] {
+  const groups: { label: string; rows: ListRow[] }[] = [];
+  for (const r of sortRows(rows)) {
+    const last = groups[groups.length - 1];
+    if (last && last.label === r.gradeSection) last.rows.push(r);
+    else groups.push({ label: r.gradeSection || "No section", rows: [r] });
+  }
+  return groups;
+}
+
 function downloadCsv(rows: ListRow[], at: number) {
   // Excel turns a 12-digit number into 1.23457E+11, so the LRN is written as
   // ="123456789012" — Excel and Google Sheets both show it as plain text.
-  const lines = ["LRN,Grade and section,First password", ...rows.map((r) => `="${r.lrn}","${r.gradeSection}",${r.password}`)];
+  // Sorted by grade and section so a section's rows are together.
+  const lines = [
+    "LRN,Grade and section,First password",
+    ...sortRows(rows).map((r) => `="${r.lrn}","${r.gradeSection}",${r.password}`),
+  ];
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -85,27 +115,36 @@ function downloadCsv(rows: ListRow[], at: number) {
   URL.revokeObjectURL(url);
 }
 
+// One table per grade and section. When printed, each section starts on a new
+// page, so a section's slips can be cut and handed to its adviser together.
 function PasswordTable({ rows }: { rows: ListRow[] }) {
   return (
-    <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--color-border)]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-muted)]">
-            <th className="px-3 py-2">LRN</th>
-            <th className="px-3 py-2">Grade and section</th>
-            <th className="px-3 py-2">First password</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.lrn} className="border-b border-[var(--color-border)] last:border-0">
-              <td className="px-3 py-2">{r.lrn}</td>
-              <td className="px-3 py-2">{r.gradeSection}</td>
-              <td className="px-3 py-2 font-mono">{r.password}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mt-4 space-y-5">
+      {groupBySection(rows).map((group, i) => (
+        <div key={group.label} className={i > 0 ? "print:break-before-page" : ""}>
+          <h3 className="mb-2 text-sm font-semibold">
+            {group.label} <span className="font-normal text-[var(--color-text-muted)]">({group.rows.length})</span>
+          </h3>
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-muted)]">
+                  <th className="px-3 py-2">LRN</th>
+                  <th className="px-3 py-2">First password</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.rows.map((r) => (
+                  <tr key={r.lrn} className="break-inside-avoid border-b border-[var(--color-border)] last:border-0">
+                    <td className="px-3 py-2">{r.lrn}</td>
+                    <td className="px-3 py-2 font-mono">{r.password}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
