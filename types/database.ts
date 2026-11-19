@@ -70,6 +70,14 @@ export interface Profile {
   section?: string | null;
   // True until a school-created student has chosen their own password or kept the school's.
   must_choose_password?: boolean;
+  // Set when a student account is switched off (status "suspended") —
+  // supabase/migrations/0035_student_switch_off.sql.
+  deactivated_at?: string | null;
+  deactivated_reason?: string | null;
+  // Last "Import students" run that included this student, and when an Admin
+  // last confirmed they're still enrolled — supabase/migrations/0036_sf1_tracking.sql.
+  last_in_sf1_at?: string | null;
+  sf1_confirmed_at?: string | null;
 }
 
 export interface Report {

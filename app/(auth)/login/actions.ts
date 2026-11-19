@@ -57,6 +57,10 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     password,
   });
 
+  if (error?.code === "user_banned" || /banned/i.test(error?.message ?? "")) {
+    return { error: "This account has been switched off. Please ask your school." };
+  }
+
   if (error || !data.user) {
     return { error: "That login didn't work. Double-check your details and try again." };
   }

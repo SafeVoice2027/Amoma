@@ -19,12 +19,19 @@ interface AccountProfile {
 
 export function AccountList({
   accounts,
+  viewerId,
+  canManageAdmins,
   onChangePassword,
   onToggleHandler,
   onSetEmployeeNumber,
   onSetAdminPosition,
 }: {
   accounts: AccountProfile[];
+  // The signed-in person, and whether they may make Admins / set positions /
+  // reset other Admins' passwords (the Developer and a school's Learner
+  // Formation Officer). The server checks all of this again on every action.
+  viewerId: string;
+  canManageAdmins: boolean;
   onChangePassword: (profileId: string, newPassword: string) => Promise<{ error: string | null }>;
   onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
   onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
@@ -63,6 +70,9 @@ export function AccountList({
             <AccountRow
               key={a.id}
               profile={a}
+              isSelf={a.id === viewerId}
+              canReset={canManageAdmins || a.role === "student" || !a.is_handler}
+              canManage={canManageAdmins && a.role === "staff" && a.id !== viewerId}
               onChangePassword={onChangePassword}
               onToggleHandler={onToggleHandler}
               onSetEmployeeNumber={onSetEmployeeNumber}

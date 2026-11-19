@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { path: "/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
   { path: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
   { path: "/overview", label: "Reports overview", icon: ClipboardList, adminOnly: false, countKey: null },
-  { path: "/accounts", label: "Accounts", icon: Users, adminOnly: true, countKey: null },
+  { path: "/accounts", label: "Accounts", icon: Users, adminOnly: false, countKey: null },
   { path: "/students", label: "Import students", icon: GraduationCap, adminOnly: false, countKey: null },
 ];
 

@@ -15,6 +15,11 @@ import { parseSf1 } from "@/lib/students/sf1";
 // Nothing is created by the preview; accounts are only made by
 // importStudentBatch, which the page calls in small batches after the
 // preview is confirmed.
+//
+// The same page also switches student accounts off (graduated / transferred)
+// and back on. Switching off never deletes anything: the account and all its
+// reports stay, the student just can't log in (profile status "suspended" plus
+// a login ban). Only students of the person's own school can be touched.
 
 export interface ImportStudent {
   lrn: string;
@@ -31,7 +36,16 @@ export interface ImportPlan {
   newCount: number;
   existingCount: number;
   problems: string[];
+  // Active students of this school who had a grade recorded but are NOT in the
+  // files. After the import the page asks about each (transferred, graduated,
+  // still enrolled) — see lib/students/to-check.ts. Counted here only.
+  missingCount: number;
+  // Active students with no grade recorded (never in a register) — counted
+  // only, not listed.
+  missingNoGrade: number;
 }
+
+export type SwitchOffReason = "graduated" | "transferred" | "other";
 
 export type PreviewResult = { error: string } | { plan: ImportPlan };
 
@@ -130,6 +144,45 @@ export async function previewStudentImport(formData: FormData): Promise<PreviewR
     .sort((a, b) => a.lrn.localeCompare(b.lrn))
     .map((s, i) => ({ ...s, seq: i + 1 }));
 
+  // Year-end cleanup list: this school's active students who aren't in the files.
+  const inFiles = new Set(students.map((s) => s.lrn));
+  let missingCount = 0;
+  let missingNoGrade = 0;
+  for (let from = 0; ; from += 1000) {
+    const { data } = await service
+      .from("profiles")
+      .select("lrn, grade_level, section")
+      .eq("role", "student")
+      .eq("school_id", school.id)
+      .eq("status", "approved")
+      .not("lrn", "is", null)
+      .order("lrn", { ascending: true })
+      .range(from, from + 999);
+    for (const r of (data ?? []) as { lrn: string; grade_level: number | null; section: string | null }[]) {
+      if (inFiles.has(r.lrn)) continue;
+      if (r.grade_level == null) missingNoGrade++;
+      else missingCount++;
+    }
+    if (!data || data.length < 1000) break;
+  }
+
+  // Students in the files who are already switched off stay off.
+  let stillOff = 0;
+  for (let i = 0; i < students.length; i += 200) {
+    const { count } = await service
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", school.id)
+      .eq("status", "suspended")
+      .in("lrn", students.slice(i, i + 200).map((s) => s.lrn));
+    stillOff += count ?? 0;
+  }
+  if (stillOff) {
+    problems.push(
+      `${stillOff} student(s) in these files are switched off and will stay off. Switch them back on from the list at the bottom of this page if they're back.`,
+    );
+  }
+
   return {
     plan: {
       files: planFiles,
@@ -137,6 +190,8 @@ export async function previewStudentImport(formData: FormData): Promise<PreviewR
       newCount: students.filter((s) => !existing.has(s.lrn)).length,
       existingCount: students.filter((s) => existing.has(s.lrn)).length,
       problems,
+      missingCount,
+      missingNoGrade,
     },
   };
 }
@@ -146,9 +201,19 @@ export async function previewStudentImport(formData: FormData): Promise<PreviewR
 // (Amoma0001 ...) that is returned here for the one-time list and never stored or logged. Existing student -> only
 // the grade and section are updated; their password and everything else stay
 // exactly as they were.
-export async function importStudentBatch(students: ImportStudent[]): Promise<{ error?: string; results: BatchResultRow[] }> {
+export async function importStudentBatch(
+  students: ImportStudent[],
+  importedAt: string,
+): Promise<{ error?: string; results: BatchResultRow[] }> {
   const admin = await requireImporter();
   if (!admin) return { error: "Not authorized.", results: [] };
+  // One time for the whole import (the page makes it when the import starts);
+  // it must be recent so it can't be used to rewrite history.
+  const stampMs = Date.parse(importedAt);
+  if (!Number.isFinite(stampMs) || Math.abs(Date.now() - stampMs) > 6 * 60 * 60 * 1000) {
+    return { error: "Invalid import time.", results: [] };
+  }
+  const stamp = new Date(stampMs).toISOString();
   if (!Array.isArray(students) || students.length === 0 || students.length > 20) {
     return { error: "Invalid batch.", results: [] };
   }
@@ -192,7 +257,7 @@ export async function importStudentBatch(students: ImportStudent[]): Promise<{ e
       }
       const { error } = await service
         .from("profiles")
-        .update({ grade_level: s.grade, section: s.section })
+        .update({ grade_level: s.grade, section: s.section, last_in_sf1_at: stamp })
         .eq("id", existing.id);
       if (!error) {
         // Reports this student filed before their grade was known pick it up now.
@@ -224,6 +289,7 @@ export async function importStudentBatch(students: ImportStudent[]): Promise<{ e
       approved_at: new Date().toISOString(),
       grade_level: s.grade,
       section: s.section,
+      last_in_sf1_at: stamp,
       must_choose_password: true,
     });
     if (profileError) {
@@ -239,4 +305,143 @@ export async function importStudentBatch(students: ImportStudent[]): Promise<{ e
   revalidatePath("/developer/accounts");
   revalidatePath("/admin/accounts");
   return { results };
+}
+
+// Block (or allow) the login itself. A banned account can't sign in or refresh
+// its session; the profile status change stops any page that is still open.
+const BAN_FOREVER = "876000h"; // ~100 years
+
+export interface SwitchResult {
+  error?: string;
+  changed: number;
+  skipped: number;
+}
+
+// Switch student accounts off. Only active students of the caller's own school
+// are touched — never staff, Admins or the Developer. Nothing is deleted.
+export async function switchOffStudents(lrns: string[], reason: SwitchOffReason): Promise<SwitchResult> {
+  const importer = await requireImporter();
+  if (!importer) return { error: "Not authorized.", changed: 0, skipped: 0 };
+  if (!Array.isArray(lrns) || lrns.length === 0 || lrns.length > 50) return { error: "Invalid request.", changed: 0, skipped: 0 };
+  if (!["graduated", "transferred", "other"].includes(reason)) return { error: "Invalid reason.", changed: 0, skipped: 0 };
+
+  const service = createServiceClient();
+  const school = await schoolForImporter(service, importer);
+  if (!school) return { error: "Your account isn't linked to a school yet.", changed: 0, skipped: 0 };
+
+  let changed = 0;
+  let skipped = 0;
+  for (const lrn of lrns) {
+    if (!/^\d{12}$/.test(String(lrn))) {
+      skipped++;
+      continue;
+    }
+    const { data: p } = await service
+      .from("profiles")
+      .select("id")
+      .eq("lrn", lrn)
+      .eq("role", "student")
+      .eq("school_id", school.id)
+      .eq("status", "approved")
+      .maybeSingle<{ id: string }>();
+    if (!p) {
+      skipped++;
+      continue;
+    }
+    const { error: banError } = await service.auth.admin.updateUserById(p.id, { ban_duration: BAN_FOREVER });
+    if (banError) {
+      console.error("[switchOffStudents] ban failed", banError.message);
+      skipped++;
+      continue;
+    }
+    const { error } = await service
+      .from("profiles")
+      .update({ status: "suspended", deactivated_at: new Date().toISOString(), deactivated_reason: reason })
+      .eq("id", p.id);
+    if (error) {
+      // Put the login back so the account isn't left half switched off.
+      await service.auth.admin.updateUserById(p.id, { ban_duration: "none" });
+      skipped++;
+      continue;
+    }
+    changed++;
+  }
+
+  revalidatePath("/admin/students");
+  revalidatePath("/developer/students");
+  return { changed, skipped };
+}
+
+// Switch one student back on (a transfer that came back, or a mistake).
+export async function switchOnStudent(lrn: string): Promise<{ error: string | null }> {
+  const importer = await requireImporter();
+  if (!importer) return { error: "Not authorized." };
+  if (!/^\d{12}$/.test(String(lrn))) return { error: "That isn't a valid LRN." };
+
+  const service = createServiceClient();
+  const school = await schoolForImporter(service, importer);
+  if (!school) return { error: "Your account isn't linked to a school yet." };
+
+  const { data: p } = await service
+    .from("profiles")
+    .select("id")
+    .eq("lrn", lrn)
+    .eq("role", "student")
+    .eq("school_id", school.id)
+    .eq("status", "suspended")
+    .maybeSingle<{ id: string }>();
+  if (!p) return { error: "No switched-off student with that LRN." };
+
+  const { error: banError } = await service.auth.admin.updateUserById(p.id, { ban_duration: "none" });
+  if (banError) return { error: "Couldn't switch the account back on." };
+  const { error } = await service
+    .from("profiles")
+    .update({ status: "approved", deactivated_at: null, deactivated_reason: null })
+    .eq("id", p.id);
+  if (error) return { error: "Couldn't switch the account back on." };
+
+  revalidatePath("/admin/students");
+  revalidatePath("/developer/students");
+  return { error: null };
+}
+
+// Switch off ONE student by LRN, e.g. someone who transferred mid-year.
+export async function switchOffOneStudent(lrn: string, reason: SwitchOffReason): Promise<{ error: string | null }> {
+  const res = await switchOffStudents([String(lrn).trim()], reason);
+  if (res.error) return { error: res.error };
+  if (!res.changed) return { error: "No active student with that LRN at your school." };
+  return { error: null };
+}
+
+// The page's answer for students who weren't in the latest SF1 files:
+// transferred / graduated / other switch the account off; "enrolled" means
+// they are still here, so the page stops asking about them until the next import.
+export async function answerStudentsToCheck(
+  lrns: string[],
+  answer: SwitchOffReason | "enrolled",
+): Promise<SwitchResult> {
+  if (answer !== "enrolled") return switchOffStudents(lrns, answer);
+
+  const importer = await requireImporter();
+  if (!importer) return { error: "Not authorized.", changed: 0, skipped: 0 };
+  if (!Array.isArray(lrns) || lrns.length === 0 || lrns.length > 50) return { error: "Invalid request.", changed: 0, skipped: 0 };
+
+  const service = createServiceClient();
+  const school = await schoolForImporter(service, importer);
+  if (!school) return { error: "Your account isn't linked to a school yet.", changed: 0, skipped: 0 };
+
+  const valid = lrns.filter((l) => /^\d{12}$/.test(String(l)));
+  const { data, error } = await service
+    .from("profiles")
+    .update({ sf1_confirmed_at: new Date().toISOString() })
+    .eq("role", "student")
+    .eq("school_id", school.id)
+    .eq("status", "approved")
+    .in("lrn", valid)
+    .select("id");
+  if (error) return { error: "Couldn't save that. Please try again.", changed: 0, skipped: lrns.length };
+
+  revalidatePath("/admin/students");
+  revalidatePath("/developer/students");
+  return { changed: data?.length ?? 0, skipped: lrns.length - (data?.length ?? 0) };
 }

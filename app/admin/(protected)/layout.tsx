@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { logout } from "@/app/(auth)/login/actions";
 import { markUrgentNotificationsRead, fetchUrgentAlerts as pollUrgentAlerts } from "@/app/admin/actions";
 import { AdminSidebar } from "@/components/admin-sidebar";
@@ -19,12 +20,26 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // Sidebar badge counts — Account approvals and Bug reports are Admin-only
   // (see supabase/migrations/0010_handlers_and_teacher_tags.sql), so skip
   // both queries entirely for a Handler viewer.
+  // Account requests: the Developer sees every school's; a school's Learner
+  // Formation Officer sees their own school's staff requests. Bug reports stay
+  // Developer-only.
+  const isLfo = profile.role === "staff" && profile.admin_position === "learner_formation_officer";
   const [{ count: pendingApprovalsCount }, { count: openBugReportsCount }] = isAdmin
     ? await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("bug_reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       ])
-    : [{ count: 0 }, { count: 0 }];
+    : isLfo && profile.school_id
+      ? [
+          await createServiceClient()
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("role", "staff")
+            .eq("school_id", profile.school_id),
+          { count: 0 },
+        ]
+      : [{ count: 0 }, { count: 0 }];
 
   const { items: urgentItems, unreadCount: unreadUrgentCount } = await fetchUrgentAlerts(supabase, profile.id);
 

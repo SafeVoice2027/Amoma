@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { Card } from "@/components/ui";
 import { approveAccount, rejectAccount } from "@/app/admin/actions";
+import { createServiceClient } from "@/lib/supabase/service";
 import { ApprovalRow } from "@/components/approval-row";
 import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
@@ -110,19 +111,30 @@ export default async function AdminHomePage() {
   const basePath = isAdmin ? "/developer" : "/admin";
   const supabase = await createClient();
 
-  // Account approvals stay Admin-only, so a Handler viewer never needs this
-  // query at all.
+  // Account requests are decided by the Developer (every school) and by a
+  // school's Learner Formation Officer (their own school's staff). Any other
+  // Admin never needs this query.
+  const isLfo = profile.role === "staff" && profile.admin_position === "learner_formation_officer";
+  const showApprovals = isAdmin || isLfo;
   const [reportsResult, { data: school }, { data: pending }] = await Promise.all([
     fetchReports(supabase),
     profile.school_id
       ? supabase.from("schools").select("name").eq("id", profile.school_id).maybeSingle<{ name: string }>()
       : Promise.resolve({ data: null }),
-    isAdmin
-      ? supabase
-          .from("profiles")
-          .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
-          .eq("status", "pending")
-          .in("role", ["staff", "student", "admin"] satisfies UserRole[])
+    showApprovals
+      ? (isAdmin
+          ? supabase
+              .from("profiles")
+              .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
+              .eq("status", "pending")
+              .in("role", ["staff", "student", "admin"] satisfies UserRole[])
+          : createServiceClient()
+              .from("profiles")
+              .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
+              .eq("status", "pending")
+              .eq("role", "staff")
+              .eq("school_id", profile.school_id ?? "00000000-0000-0000-0000-000000000000")
+        )
           .order("created_at", { ascending: true })
           .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[]>()
       : Promise.resolve({
@@ -202,7 +214,7 @@ export default async function AdminHomePage() {
         <TypeFileBrowser rows={typeFiles ?? []} reportHrefBase={`${basePath}/reports`} />
       </div>
 
-      {isAdmin && (
+      {showApprovals && (
         <>
           <div className="mb-4 mt-10 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Account approvals</h2>

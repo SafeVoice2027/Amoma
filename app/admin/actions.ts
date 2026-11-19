@@ -5,6 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { addFollowup as addFollowupShared } from "@/lib/reports/followups";
 import { getCurrentProfile } from "@/lib/auth";
+import {
+  canDecideRequest,
+  canManageStaff,
+  canResetPassword,
+  getAccountManager,
+  type AccountTarget,
+} from "@/lib/accounts/manager";
 import { fetchUrgentAlerts as fetchUrgentAlertsShared, type UrgentAlertsResult } from "@/lib/notifications";
 import type { AdminPosition, BugReportStatus, ReportStatus } from "@/types/database";
 
@@ -74,39 +81,47 @@ export async function updateBugReportStatus(bugReportId: string, status: BugRepo
   revalidatePath("/developer/bug-reports");
 }
 
-// Account approvals are Developer-only (see the isAdmin-gated section of
-// app/admin/(protected)/page.tsx, re-exported as the Developer overview too)
-// — no basePath needed, this only ever renders under /developer.
-export async function approveAccount(profileId: string) {
-  const admin = await getCurrentProfile();
-  if (!admin) return;
+// Account requests (staff asking for access). The Developer decides any
+// school's; a school's Learner Formation Officer decides their own school's.
+// Checked on the server against the person's real role and school — see
+// lib/accounts/manager.ts.
+async function decideRequest(profileId: string, decision: "approved" | "rejected") {
+  const manager = await getAccountManager();
+  if (!manager) return;
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const service = createServiceClient();
+  const { data: target } = await service
     .from("profiles")
-    .update({ status: "approved", approved_by: admin.id, approved_at: new Date().toISOString() })
+    .select("id, role, is_handler, school_id, status")
     .eq("id", profileId)
-    .select("id");
-  if (error || !data?.length) {
-    console.error("[approveAccount] update affected no rows", { profileId, error });
+    .maybeSingle<AccountTarget>();
+  if (!target || !canDecideRequest(manager, target)) {
+    console.error("[decideRequest] not allowed or not found", { profileId, decision });
+    return;
   }
-  revalidatePath("/developer");
+
+  const update =
+    decision === "approved"
+      ? { status: "approved", approved_by: manager.profile.id, approved_at: new Date().toISOString() }
+      : { status: "rejected" };
+  const { error } = await service.from("profiles").update(update).eq("id", profileId);
+  if (error) console.error("[decideRequest] update failed", { profileId, error });
+  revalidateAccountPages();
+}
+
+export async function approveAccount(profileId: string) {
+  await decideRequest(profileId, "approved");
 }
 
 export async function rejectAccount(profileId: string) {
-  const admin = await getCurrentProfile();
-  if (!admin) return;
+  await decideRequest(profileId, "rejected");
+}
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({ status: "rejected" })
-    .eq("id", profileId)
-    .select("id");
-  if (error || !data?.length) {
-    console.error("[rejectAccount] update affected no rows", { profileId, error });
+function revalidateAccountPages() {
+  for (const base of ["/admin", "/developer"]) {
+    revalidatePath(base);
+    revalidatePath(`${base}/accounts`);
   }
-  revalidatePath("/developer");
 }
 
 // Both Admin (Handler) and Developer can mark an annual report printed —
@@ -135,36 +150,35 @@ export async function markAnnualReportPrinted(
   return { error: null };
 }
 
-// Students and staff now choose their own password at signup (see
-// app/(auth)/signup/actions.ts) and there's no self-service reset — a
-// synthetic LRN email has no real inbox to send a reset link to anyway (see
-// app/forgot-password/page.tsx). This is the fallback for "I forgot it" or
-// any other login trouble: an admin sets a new one directly. Scoped to
-// student/staff profiles only — resetting a fellow admin's password isn't
-// exposed here.
+// Students and staff choose their own password and there's no self-service
+// reset — a synthetic LRN email has no real inbox to send a reset link to (see
+// app/forgot-password/page.tsx). This is the fallback for "I forgot it" or any
+// other login trouble: an Admin sets a new one directly. An Admin can do this
+// for the students and teachers of their own school; the Learner Formation
+// Officer (and the Developer) also for other Admins. The Developer account
+// itself can't be changed here.
 export async function changeUserPassword(
   profileId: string,
   newPassword: string,
 ): Promise<{ error: string | null }> {
-  const admin = await getCurrentProfile();
-  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
 
   if (newPassword.length < 8) {
     return { error: "Password must be at least 8 characters." };
   }
 
-  const supabase = await createClient();
-  const { data: target } = await supabase
+  const service = createServiceClient();
+  const { data: target } = await service
     .from("profiles")
-    .select("role")
+    .select("id, role, is_handler, school_id")
     .eq("id", profileId)
-    .single();
+    .maybeSingle<AccountTarget>();
 
-  if (!target || target.role === "admin") {
+  if (!target || !canResetPassword(manager, target)) {
     return { error: "That account can't be changed here." };
   }
 
-  const service = createServiceClient();
   const { error } = await service.auth.admin.updateUserById(profileId, { password: newPassword });
   if (error) {
     console.error("[changeUserPassword] updateUserById failed", { profileId, error });
@@ -174,21 +188,23 @@ export async function changeUserPassword(
   return { error: null };
 }
 
-// Admin-only toggle, surfaced on the existing Accounts screen rather than a
-// new one — the real Handler identities (Prefect of Discipline / CFLFO)
-// aren't finalized yet, so this stays a flag any Admin can flip once they
-// are, instead of hardcoding specific people.
+// Make a staff member an Admin, or take it away. The Learner Formation Officer
+// of a school can do this for their own school's staff; so can the Developer.
 export async function toggleIsHandler(profileId: string, isHandler: boolean): Promise<{ error: string | null }> {
-  const admin = await getCurrentProfile();
-  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
 
-  const supabase = await createClient();
-  const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
-  if (!target || target.role !== "staff") return { error: "That account can't be changed here." };
+  const service = createServiceClient();
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, is_handler, school_id")
+    .eq("id", profileId)
+    .maybeSingle<AccountTarget>();
+  if (!target || !canManageStaff(manager, target)) return { error: "That account can't be changed here." };
 
   // Turning Admin on defaults to Learner Formation Officer so the account can
   // tag right away; switching it off clears the position.
-  const { error } = await supabase
+  const { error } = await service
     .from("profiles")
     .update({ is_handler: isHandler, admin_position: isHandler ? "learner_formation_officer" : null })
     .eq("id", profileId);
@@ -197,50 +213,60 @@ export async function toggleIsHandler(profileId: string, isHandler: boolean): Pr
     return { error: "Couldn't update that account. Please try again." };
   }
 
-  revalidatePath("/developer/accounts");
+  revalidateAccountPages();
   return { error: null };
 }
 
-// Developer-only: which Admin position an Admin account holds. Cases are
-// viewed by both; only the Learner Formation Officer tags teachers.
+// Which Admin position an Admin account holds. Cases are viewed by all
+// Admins; only the Learner Formation Officer tags teachers.
 export async function setAdminPosition(
   profileId: string,
   position: AdminPosition,
 ): Promise<{ error: string | null }> {
-  const admin = await getCurrentProfile();
-  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
   const positions: AdminPosition[] = ["learner_formation_officer", "guidance_counselor", "school_head"];
   if (!positions.includes(position)) return { error: "Invalid position." };
 
-  const supabase = await createClient();
-  const { data: target } = await supabase.from("profiles").select("role, is_handler").eq("id", profileId).single();
-  if (!target || target.role !== "staff" || !target.is_handler) return { error: "That account isn't an Admin." };
+  const service = createServiceClient();
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, is_handler, school_id")
+    .eq("id", profileId)
+    .maybeSingle<AccountTarget>();
+  if (!target || !canManageStaff(manager, target) || !target.is_handler) {
+    return { error: "That account can't be changed here." };
+  }
 
-  const { error } = await supabase.from("profiles").update({ admin_position: position }).eq("id", profileId);
+  const { error } = await service.from("profiles").update({ admin_position: position }).eq("id", profileId);
   if (error) {
     console.error("[setAdminPosition] update failed", { profileId, error });
     return { error: "Couldn't update that account. Please try again." };
   }
 
-  revalidatePath("/developer/accounts");
+  revalidateAccountPages();
   return { error: null };
 }
 
-// Admin-only: sets a Teacher's Employee Number (their login identifier in
-// place of a DepEd email — see get_login_email_by_employee_number() in
+// Sets a staff member's Employee Number (their login identifier in place of a
+// DepEd email — see get_login_email_by_employee_number() in
 // supabase/migrations/0010_handlers_and_teacher_tags.sql).
 export async function setEmployeeNumber(
   profileId: string,
   employeeNumber: string,
 ): Promise<{ error: string | null }> {
-  const admin = await getCurrentProfile();
-  if (!admin || admin.role !== "admin") return { error: "Not authorized." };
+  const manager = await getAccountManager();
+  if (!manager) return { error: "Not authorized." };
 
-  const supabase = await createClient();
-  const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
-  if (!target || target.role !== "staff") return { error: "That account can't be changed here." };
+  const service = createServiceClient();
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, is_handler, school_id")
+    .eq("id", profileId)
+    .maybeSingle<AccountTarget>();
+  if (!target || !canManageStaff(manager, target)) return { error: "That account can't be changed here." };
 
-  const { error } = await supabase
+  const { error } = await service
     .from("profiles")
     .update({ employee_number: employeeNumber.trim() || null })
     .eq("id", profileId);
@@ -250,7 +276,7 @@ export async function setEmployeeNumber(
     return { error: message };
   }
 
-  revalidatePath("/developer/accounts");
+  revalidateAccountPages();
   return { error: null };
 }
 

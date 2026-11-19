@@ -17,12 +17,20 @@ interface AccountProfile {
 
 export function AccountRow({
   profile,
+  isSelf,
+  canReset,
+  canManage,
   onChangePassword,
   onToggleHandler,
   onSetEmployeeNumber,
   onSetAdminPosition,
 }: {
   profile: AccountProfile;
+  // You can't change your own Admin status or position; whether you may reset
+  // this person's password / manage them is decided by your own position.
+  isSelf: boolean;
+  canReset: boolean;
+  canManage: boolean;
   onChangePassword: (profileId: string, newPassword: string) => Promise<{ error: string | null }>;
   onToggleHandler: (profileId: string, isHandler: boolean) => Promise<{ error: string | null }>;
   onSetEmployeeNumber: (profileId: string, employeeNumber: string) => Promise<{ error: string | null }>;
@@ -110,19 +118,22 @@ export function AccountRow({
           <p className="text-sm text-[var(--color-text-muted)]">
             {profile.role === "student" ? "Student" : "Staff"} ·{" "}
             {profile.lrn ?? profile.deped_email ?? profile.employee_number}
+            {isSelf ? " · You" : ""}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          disabled={pending}
-          onClick={() => (open ? reset() : setOpen(true))}
-          className="min-h-0 flex-shrink-0 px-3 py-2 text-sm"
-        >
-          {open ? "Cancel" : "Change Password"}
-        </Button>
+        {canReset && (
+          <Button
+            variant="secondary"
+            disabled={pending}
+            onClick={() => (open ? reset() : setOpen(true))}
+            className="min-h-0 flex-shrink-0 px-3 py-2 text-sm"
+          >
+            {open ? "Cancel" : "Change Password"}
+          </Button>
+        )}
       </div>
 
-      {profile.role === "staff" && (
+      {canManage && (
         <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4">
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -181,7 +192,7 @@ export function AccountRow({
         </div>
       )}
 
-      {open && (
+      {open && canReset && (
         <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4">
           <div>
             <label className="mb-1 block text-sm font-medium">New password</label>

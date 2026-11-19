@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Download, FileSpreadsheet, Printer, Trash2, Upload } from "lucide-react";
 import { Button, Card } from "@/components/ui";
-import type { BatchResultRow, ImportPlan, ImportStudent, PreviewResult } from "@/app/admin/(protected)/students/actions";
+import type {
+  BatchResultRow,
+  ImportPlan,
+  ImportStudent,
+  PreviewResult,
+} from "@/app/admin/(protected)/students/actions";
 
 const BATCH_SIZE = 10;
 
@@ -15,7 +20,9 @@ type Phase = "pick" | "preview" | "running" | "done";
 
 interface Actions {
   preview: (formData: FormData) => Promise<PreviewResult>;
-  runBatch: (students: ImportStudent[]) => Promise<{ error?: string; results: BatchResultRow[] }>;
+  // importedAt is one time for the whole import, so every student in it is
+  // stamped as "seen in this register" together.
+  runBatch: (students: ImportStudent[], importedAt: string) => Promise<{ error?: string; results: BatchResultRow[] }>;
 }
 
 interface ListRow {
@@ -159,6 +166,7 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
 
     const runId = crypto.randomUUID();
     const startedAt = Date.now();
+    const importedAt = new Date(startedAt).toISOString();
     const gradeOf = new Map(plan.students.map((s) => [s.lrn, `Grade ${s.grade} - ${s.section}`]));
     const fileNames = plan.files.map((f) => f.name);
 
@@ -184,7 +192,7 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
 
     const all: BatchResultRow[] = [];
     for (let i = 0; i < plan.students.length; i += BATCH_SIZE) {
-      const res = await actions.runBatch(plan.students.slice(i, i + BATCH_SIZE));
+      const res = await actions.runBatch(plan.students.slice(i, i + BATCH_SIZE), importedAt);
       if (res.error) {
         setError(res.error);
         break;
@@ -194,6 +202,7 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
       setProgress(Math.min(plan.students.length, i + BATCH_SIZE));
       save(all);
     }
+
     setPhase("done");
   };
 
@@ -365,6 +374,24 @@ export function ImportStudents({ actions, storageKey }: { actions: Actions; stor
                 <li key={i}>{p}</li>
               ))}
             </ul>
+          )}
+
+          {(plan.missingCount > 0 || plan.missingNoGrade > 0) && (
+            <p className="mt-3 text-sm text-[var(--color-text-muted)]">
+              {plan.missingCount > 0 && (
+                <>
+                  <strong>{plan.missingCount}</strong> student{plan.missingCount === 1 ? " is" : "s are"} already in
+                  Amoma but not in these files. After the import you&apos;ll be asked about each one: transferred,
+                  graduated, or still enrolled. Nothing is switched off automatically.{" "}
+                </>
+              )}
+              {plan.missingNoGrade > 0 && (
+                <>
+                  {plan.missingNoGrade} other account{plan.missingNoGrade === 1 ? " has" : "s have"} no grade recorded
+                  (never in a register) and {plan.missingNoGrade === 1 ? "isn't" : "aren't"} tracked.
+                </>
+              )}
+            </p>
           )}
 
           <div className="mt-5 flex gap-3">
