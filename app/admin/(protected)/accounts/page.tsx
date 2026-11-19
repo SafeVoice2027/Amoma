@@ -2,8 +2,12 @@ import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PageHeader } from "@/components/ui";
 import { AccountList } from "@/components/account-list";
+import { ApprovalRow } from "@/components/approval-row";
+import { Card } from "@/components/ui";
 import { canManageAdmins, getAccountManager } from "@/lib/accounts/manager";
 import {
+  approveAccount,
+  rejectAccount,
   changeUserPassword,
   toggleIsHandler,
   setEmployeeNumber,
@@ -86,6 +90,23 @@ export default async function AccountsPage() {
 
   const manageAdmins = canManageAdmins(manager);
 
+  // Account requests: the Developer decides every school's; a school's LFO
+  // decides their own school's staff requests. Other Admins don't see this.
+  let pendingQuery = createServiceClient()
+    .from("profiles")
+    .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  pendingQuery = manager.isDeveloper
+    ? pendingQuery.in("role", ["staff", "student", "admin"] satisfies UserRole[])
+    : pendingQuery.eq("role", "staff").eq("school_id", manager.profile.school_id!);
+  const { data: pendingData } = manageAdmins
+    ? await pendingQuery.returns<
+        Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[]
+      >()
+    : { data: [] };
+  const pending = pendingData ?? [];
+
   return (
     <div>
       <PageHeader
@@ -96,6 +117,27 @@ export default async function AccountsPage() {
             : "Set a new password for a student or teacher who's locked out. There's no self-service reset."
         }
       />
+      {manageAdmins && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Pending approval</h2>
+            <span className="text-sm text-[var(--color-text-muted)]">{pending.length} pending</span>
+          </div>
+          {pending.length === 0 ? (
+            <Card>
+              <p className="text-[var(--color-text-muted)]">No pending approvals.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {pending.map((p) => (
+                <ApprovalRow key={p.id} profile={p} onApprove={approveAccount} onReject={rejectAccount} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <h2 className="mb-3 text-lg font-semibold">Approved accounts</h2>
       <AccountList
         accounts={accounts}
         viewerId={manager.profile.id}

@@ -2,16 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrHandler } from "@/lib/auth";
 import { Card } from "@/components/ui";
-import { approveAccount, rejectAccount } from "@/app/admin/actions";
-import { createServiceClient } from "@/lib/supabase/service";
-import { ApprovalRow } from "@/components/approval-row";
 import { AdminCaseOverview } from "@/components/admin-case-overview";
 import type { CaseRow } from "@/components/case-overview-table";
 import { SeverityReportBoard } from "@/components/severity-report-board";
 import { formatReference } from "@/lib/reports/case-id";
 import { fetchUnreadReportIds } from "@/lib/reports/unread";
 import { TypeFileBrowser } from "@/components/type-file-browser";
-import type { Profile, ReportTypeFile, StaffReportsView, UserRole } from "@/types/database";
+import type { ReportTypeFile, StaffReportsView } from "@/types/database";
 
 type ReportRow = Pick<
   StaffReportsView,
@@ -111,35 +108,12 @@ export default async function AdminHomePage() {
   const basePath = isAdmin ? "/developer" : "/admin";
   const supabase = await createClient();
 
-  // Account requests are decided by the Developer (every school) and by a
-  // school's Learner Formation Officer (their own school's staff). Any other
-  // Admin never needs this query.
-  const isLfo = profile.role === "staff" && profile.admin_position === "learner_formation_officer";
-  const showApprovals = isAdmin || isLfo;
-  const [reportsResult, { data: school }, { data: pending }] = await Promise.all([
+  // (Account requests are decided on the Accounts page, not here.)
+  const [reportsResult, { data: school }] = await Promise.all([
     fetchReports(supabase),
     profile.school_id
       ? supabase.from("schools").select("name").eq("id", profile.school_id).maybeSingle<{ name: string }>()
       : Promise.resolve({ data: null }),
-    showApprovals
-      ? (isAdmin
-          ? supabase
-              .from("profiles")
-              .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
-              .eq("status", "pending")
-              .in("role", ["staff", "student", "admin"] satisfies UserRole[])
-          : createServiceClient()
-              .from("profiles")
-              .select("id, full_name, role, lrn, deped_email, employee_number, created_at")
-              .eq("status", "pending")
-              .eq("role", "staff")
-              .eq("school_id", profile.school_id ?? "00000000-0000-0000-0000-000000000000")
-        )
-          .order("created_at", { ascending: true })
-          .returns<Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[]>()
-      : Promise.resolve({
-          data: [] as Pick<Profile, "id" | "full_name" | "role" | "lrn" | "deped_email" | "employee_number" | "created_at">[],
-        }),
   ]);
 
   const allReports = reportsResult;
@@ -213,26 +187,6 @@ export default async function AdminHomePage() {
       <div className="mt-10">
         <TypeFileBrowser rows={typeFiles ?? []} reportHrefBase={`${basePath}/reports`} />
       </div>
-
-      {showApprovals && (
-        <>
-          <div className="mb-4 mt-10 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Account approvals</h2>
-            <span className="text-sm text-[var(--color-text-muted)]">{pending?.length ?? 0} pending</span>
-          </div>
-          {!pending?.length ? (
-            <Card>
-              <p className="text-[var(--color-text-muted)]">No pending approvals.</p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {pending.map((p) => (
-                <ApprovalRow key={p.id} profile={p} onApprove={approveAccount} onReject={rejectAccount} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
 
       <div className="mt-10 flex flex-wrap gap-6">
         <Link href={`${basePath}/reports`}>

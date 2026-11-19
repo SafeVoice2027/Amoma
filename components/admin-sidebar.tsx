@@ -15,13 +15,13 @@ import { UrgentNotificationBell, type UrgentNotificationItem } from "@/component
 // viewer is actually on. countKey looks up how many unaddressed items to
 // badge the icon with — see AdminLayout for where those counts are computed.
 const NAV_ITEMS = [
-  { path: "", label: "Case overview", icon: LayoutGrid, adminOnly: false, countKey: "pendingApprovals" as const },
+  { path: "", label: "Case overview", icon: LayoutGrid, adminOnly: false, countKey: null },
   { path: "/reports", label: "All reports", icon: FileText, adminOnly: false, countKey: null },
   { path: "/bug-reports", label: "Bug reports", icon: Bug, adminOnly: true, countKey: "openBugReports" as const },
   { path: "/followups", label: "Followups", icon: MessageSquare, adminOnly: false, countKey: null },
   { path: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: false, countKey: null },
   { path: "/overview", label: "Reports overview", icon: ClipboardList, adminOnly: false, countKey: null },
-  { path: "/accounts", label: "Accounts", icon: Users, adminOnly: false, countKey: null },
+  { path: "/accounts", label: "Accounts", icon: Users, adminOnly: false, countKey: "pendingApprovals" as const },
   { path: "/students", label: "Import students", icon: GraduationCap, adminOnly: false, countKey: null },
 ];
 
