@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Check } from "lucide-react";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { STAGE_ORDER, normalizeStage } from "@/lib/reports/stage-labels";
 import type { ReportStage, ReportStageProgress } from "@/types/database";
@@ -57,6 +57,9 @@ export function StaffStageChecklist({
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // "Undo this step?" is asked on the page, not with a browser pop-up (an app
+  // window can block pop-ups, which made the undo look dead).
+  const [confirmingUndo, setConfirmingUndo] = useState(false);
 
   const currentIndex = STAGE_ORDER.indexOf(normalizeStage(progress.current_stage));
   const closed = progress.current_stage === "case_closed" && progress.case_closed_at !== null;
@@ -65,20 +68,22 @@ export function StaffStageChecklist({
     return i < currentIndex || (i === LAST && closed);
   }
 
+  function undoStep() {
+    setConfirmingUndo(false);
+    startTransition(async () => {
+      const result = await revertStage();
+      if ("error" in result) setError(result.error);
+    });
+  }
+
   function handleCheck(i: number) {
     setError(null);
 
     if (isChecked(i)) {
-      const confirmed = window.confirm(
-        "Undo this step? This will roll the report back and change what the student sees.",
-      );
-      if (!confirmed) return;
-      startTransition(async () => {
-        const result = await revertStage();
-        if ("error" in result) setError(result.error);
-      });
+      setConfirmingUndo(true);
       return;
     }
+    setConfirmingUndo(false);
 
     if (i !== currentIndex) return; // can't skip ahead
 
@@ -128,6 +133,20 @@ export function StaffStageChecklist({
           );
         })}
       </div>
+
+      {confirmingUndo && (
+        <div className="mt-3 rounded-xl border border-[var(--color-accent-300)] bg-[var(--color-accent-50)] p-3 text-sm text-[var(--color-accent-800)]">
+          <p>Undo this step? This will roll the report back and change what the student sees.</p>
+          <div className="mt-3 flex gap-2">
+            <Button variant="danger" className="!min-h-0 !px-4 !py-2 !text-sm" disabled={pending} onClick={undoStep}>
+              Yes, undo
+            </Button>
+            <Button variant="secondary" className="!min-h-0 !px-4 !py-2 !text-sm" onClick={() => setConfirmingUndo(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-[var(--color-danger-600)]">{error}</p>}
     </Card>
